@@ -39,13 +39,27 @@ def video_duration(video):
         raise ValueError(f"Video file not found: {video}")
     probe = json.loads(command_output(
         "ffprobe", "-v", "error", "-select_streams", "v:0",
-        "-show_entries", "stream=codec_type:format=duration", "-of", "json", str(video),
+        "-show_entries", "stream=start_time,duration:format=start_time,duration",
+        "-of", "json", str(video),
     ))
     if not probe.get("streams"):
         raise ValueError(f"No video stream in {video}")
-    duration = float(probe.get("format", {}).get("duration", "nan"))
+    container = probe.get("format", {})
+    duration = float(container.get("duration", "nan"))
     if not math.isfinite(duration) or duration <= 0:
         raise ValueError(f"Could not read a positive video duration from {video}")
+    # FFmpeg seeks relative to the container start. Audio can continue after the
+    # first video stream ends, so use the video end when the probe reports it.
+    stream = probe["streams"][0]
+    try:
+        video_end = (
+            float(stream["start_time"]) - float(container["start_time"])
+            + float(stream["duration"])
+        )
+    except (KeyError, ValueError):
+        return duration
+    if math.isfinite(video_end) and video_end > 0:
+        return min(duration, video_end)
     return duration
 
 
