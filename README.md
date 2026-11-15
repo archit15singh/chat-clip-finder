@@ -19,7 +19,11 @@ The finder counts messages every ten seconds and compares the count with the med
 
 When the chat export's VOD duration is within ten seconds of the local recording, messages up to ten seconds past the end are skipped and counted in the report. Later messages still fail validation.
 
-Chat can spike for reasons unrelated to gameplay. Watch the drafts and check that each includes the setup and payoff.
+Chat can spike for reasons unrelated to gameplay. Watch the drafts and check that each includes the setup and payoff. To replace a rejected pick, pass its source interval to `--exclude` and use a fresh output directory. The finder fills the shortlist with the next eligible clips. Repeat the flag for more than one interval.
+
+```sh
+python3 clip_finder.py --video vod.mp4 --chat chat.json --exclude 28:40-29:20 --out revised
+```
 
 ## Clip a local recording without chat
 

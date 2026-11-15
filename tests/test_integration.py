@@ -106,3 +106,11 @@ class ClipperIntegration(unittest.TestCase):
         result = self.clip(self.root / "far-tail", "--preview", chat=tail_chat)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("matching untrimmed VOD", result.stderr)
+
+    def test_exclusion_replaces_a_pick_even_if_only_its_lead_in_overlaps(self):
+        output = self.root / "exclude"
+        result = self.clip(output, "--preview", "--exclude", "00:25-00:40")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["settings"]["excluded_ranges_seconds"], [[25, 40]])
+        self.assertEqual([row["peak_seconds"] for row in report["clips"]], [60, 100])

@@ -78,7 +78,12 @@ def chat_counts(chat, duration):
     return counts, skipped_tail_messages
 
 
-def chat_candidates(counts, duration, min_messages, min_ratio, before, after, limit):
+def overlap(start, end, other_start, other_end):
+    return start < other_end and other_start < end
+
+
+def chat_candidates(counts, duration, min_messages, min_ratio, before, after, limit,
+                    excluded_ranges=()):
     peaks = []
     for bucket, messages in counts.items():
         if bucket < MIN_HISTORY_BUCKETS or messages < min_messages:
@@ -95,7 +100,10 @@ def chat_candidates(counts, duration, min_messages, min_ratio, before, after, li
 
     selected = []
     for peak in sorted(peaks, key=lambda c: (-c.ratio, -c.messages, c.peak_seconds)):
-        if any(peak.start_seconds < other.end_seconds and other.start_seconds < peak.end_seconds
+        if any(overlap(peak.start_seconds, peak.end_seconds, start, end)
+               for start, end in excluded_ranges):
+            continue
+        if any(overlap(peak.start_seconds, peak.end_seconds, other.start_seconds, other.end_seconds)
                for other in selected):
             continue
         selected.append(peak)
@@ -125,6 +133,16 @@ def timestamp(value):
     except (ValueError, OverflowError):
         raise argparse.ArgumentTypeError("expected seconds, MM:SS, or HH:MM:SS") from None
     return seconds
+
+
+def timestamp_range(value):
+    try:
+        start, end = (timestamp(bound) for bound in value.split("-", 1))
+    except (ValueError, argparse.ArgumentTypeError):
+        raise argparse.ArgumentTypeError("expected a START-END timestamp range") from None
+    if start >= end:
+        raise argparse.ArgumentTypeError("range end must be after its start")
+    return start, end
 
 
 def marked_candidates(marks, duration, before, after):
@@ -172,7 +190,7 @@ def run(args):
         counts, skipped_tail_messages = chat_counts(args.chat, duration)
         clips = chat_candidates(
             counts, duration, args.min_messages, args.min_ratio,
-            args.before, args.after, args.limit,
+            args.before, args.after, args.limit, args.exclude,
         )
         mode = "chat"
     else:
@@ -189,6 +207,7 @@ def run(args):
         "before_seconds": args.before,
         "after_seconds": args.after,
         "limit": args.limit,
+        "excluded_ranges_seconds": args.exclude,
     }
     rows = []
     for rank, clip in enumerate(clips, start=1):
@@ -240,12 +259,16 @@ def main():
                         help="mark a timestamp (seconds, MM:SS or HH:MM:SS); repeat to cut more clips")
     parser.add_argument("--out", type=Path, default=Path("clips"))
     parser.add_argument("--preview", action="store_true", help="write selections without encoding")
+    parser.add_argument("--exclude", action="append", type=timestamp_range, default=[],
+                        metavar="START-END", help="skip chat picks overlapping this interval; repeatable")
     parser.add_argument("--limit", type=positive_int, default=5)
     parser.add_argument("--min-messages", type=positive_int, default=10)
     parser.add_argument("--min-ratio", type=positive, default=3)
     parser.add_argument("--before", type=positive, default=20)
     parser.add_argument("--after", type=positive, default=20)
     args = parser.parse_args()
+    if args.exclude and not args.chat:
+        parser.error("--exclude requires --chat")
     try:
         run(args)
     except (OSError, ValueError) as exc:
