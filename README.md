@@ -42,6 +42,16 @@ python3 clip_finder.py --video gta5.mp4 --at 01:18.5 --at 03:42 --before 8 --aft
 
 Use seconds, `MM:SS`, or `HH:MM:SS`, with optional fractional seconds. Repeat `--at` for each moment. Explicit marks are preserved in input order, including overlapping clips. `--preview` also works in this mode.
 
+## Measure how much of a highlight you captured
+
+Before looking at the ranked picks, mark the source intervals you would want to share. Include the setup and payoff. Save them as a JSON array in local video seconds, for example `[{"start_seconds": 120, "end_seconds": 145, "label": "Escape setup and payoff"}]`.
+
+```sh
+python3 evaluate.py --report clips/clips.json --labels labels.json
+```
+
+A moment is fully covered when one clip contains the entire labeled interval. Adjacent clips that each show part of the moment count as partial coverage. A candidate with no matching label may still be useful if the labels are incomplete. Compare settings on the same labeled footage before applying them to a different recording.
+
 ## Verify locally
 
 ```sh
