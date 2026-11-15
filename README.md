@@ -25,6 +25,15 @@ Chat can spike for reasons unrelated to gameplay. Watch the drafts and check tha
 python3 clip_finder.py --video vod.mp4 --chat chat.json --exclude 28:40-29:20 --out revised
 ```
 
+## Analyze a Twitch replay excerpt
+
+If you trim the video, use the same beginning and ending when exporting the TwitchDownloader chat JSON. Pass the excerpt's original VOD start. Cut boundaries and `--exclude` values still use seconds relative to the local file. The report records the original start under `settings.vod_start_seconds`.
+
+```sh
+TwitchDownloaderCLI chatdownload --id VOD_ID --beginning 01:15:00 --ending 01:25:00 -o chat.json
+python3 clip_finder.py --video excerpt.mp4 --chat chat.json --vod-start 01:15:00 --out excerpt-clips
+```
+
 ## Clip a local recording without chat
 
 ```sh

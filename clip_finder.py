@@ -49,14 +49,23 @@ def video_duration(video):
     return duration
 
 
-def chat_counts(chat, duration):
+def chat_counts(chat, duration, vod_start=None):
     data = json.loads(chat.read_text(encoding="utf-8-sig"))
     comments = data.get("comments") if isinstance(data, dict) else None
     if not isinstance(comments, list):
         raise ValueError("Expected a TwitchDownloader JSON export with a comments list")
 
     vod = data.get("video")
-    export_duration = vod.get("length") if isinstance(vod, dict) else None
+    metadata = vod if isinstance(vod, dict) else {}
+    export_duration = metadata.get("length")
+    if vod_start is not None:
+        export_start, export_end = metadata.get("start"), metadata.get("end")
+        if (type(export_start) not in (int, float) or type(export_end) not in (int, float)
+                or not math.isfinite(export_start) or not math.isfinite(export_end)
+                or export_start != vod_start or export_end <= export_start
+                or abs(export_end - export_start - duration) > CHAT_TAIL_TOLERANCE_SECONDS):
+            raise ValueError("--vod-start needs a TwitchDownloader export trimmed to the matching video interval")
+        export_duration = export_end - export_start
     matching_duration = (
         type(export_duration) in (int, float)
         and abs(export_duration - duration) <= CHAT_TAIL_TOLERANCE_SECONDS
@@ -67,12 +76,16 @@ def chat_counts(chat, duration):
         offset = comment.get("content_offset_seconds") if isinstance(comment, dict) else None
         if type(offset) not in (int, float) or not math.isfinite(offset) or offset < 0:
             raise ValueError(f"Invalid content_offset_seconds on chat message {index}")
+        if vod_start is not None:
+            offset -= vod_start
+            if offset < 0:
+                raise ValueError(f"Chat message {index} precedes the trimmed video start")
         if offset >= duration:
             if matching_duration and offset - duration <= CHAT_TAIL_TOLERANCE_SECONDS:
                 skipped_tail_messages += 1
                 continue
             raise ValueError(
-                f"Chat message {index} falls beyond the recording. Use the matching untrimmed VOD."
+                f"Chat message {index} falls beyond the recording. Use the matching untrimmed VOD or specify --vod-start for a matching excerpt."
             )
         counts[int(offset // BUCKET_SECONDS)] += 1
     return counts, skipped_tail_messages
@@ -187,7 +200,7 @@ def run(args):
     duration = video_duration(args.video)
     skipped_tail_messages = 0
     if args.chat:
-        counts, skipped_tail_messages = chat_counts(args.chat, duration)
+        counts, skipped_tail_messages = chat_counts(args.chat, duration, args.vod_start)
         clips = chat_candidates(
             counts, duration, args.min_messages, args.min_ratio,
             args.before, args.after, args.limit, args.exclude,
@@ -208,6 +221,7 @@ def run(args):
         "after_seconds": args.after,
         "limit": args.limit,
         "excluded_ranges_seconds": args.exclude,
+        "vod_start_seconds": args.vod_start if args.vod_start is not None else 0,
     }
     rows = []
     for rank, clip in enumerate(clips, start=1):
@@ -254,21 +268,23 @@ def main():
     parser = argparse.ArgumentParser(description="Cut gameplay clips from chat spikes or marked moments.")
     parser.add_argument("--video", type=Path, required=True, help="local video file")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--chat", type=Path, help="TwitchDownloader JSON export for the untrimmed VOD")
+    source.add_argument("--chat", type=Path, help="TwitchDownloader JSON export paired with the video")
     source.add_argument("--at", action="append", type=timestamp, metavar="TIME",
                         help="mark a timestamp (seconds, MM:SS or HH:MM:SS); repeat to cut more clips")
     parser.add_argument("--out", type=Path, default=Path("clips"))
     parser.add_argument("--preview", action="store_true", help="write selections without encoding")
     parser.add_argument("--exclude", action="append", type=timestamp_range, default=[],
                         metavar="START-END", help="skip chat picks overlapping this interval; repeatable")
+    parser.add_argument("--vod-start", type=timestamp, metavar="TIME",
+                        help="original VOD timestamp where this matching video and chat excerpt starts")
     parser.add_argument("--limit", type=positive_int, default=5)
     parser.add_argument("--min-messages", type=positive_int, default=10)
     parser.add_argument("--min-ratio", type=positive, default=3)
     parser.add_argument("--before", type=positive, default=20)
     parser.add_argument("--after", type=positive, default=20)
     args = parser.parse_args()
-    if args.exclude and not args.chat:
-        parser.error("--exclude requires --chat")
+    if not args.chat and (args.exclude or args.vod_start is not None):
+        parser.error("--exclude and --vod-start require --chat")
     try:
         run(args)
     except (OSError, ValueError) as exc:
