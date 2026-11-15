@@ -61,3 +61,7 @@ python3 -m unittest discover -s tests -v
 The integration test generates a video with audio and chat data locally, runs the CLI, and decodes the resulting MP4s.
 
 Inspired by [@ai.with.raiyan's Twitch chat spike reel](https://www.instagram.com/p/DfujpN1O7Yk/).
+
+## Improve the clipper with Codex
+
+Use the project skill `$clipper-improvement` to run one round, or run the [local improvement launcher](docs/improvement.md) for a series of rounds with the same evidence.
