@@ -86,6 +86,34 @@ class ClipperIntegration(unittest.TestCase):
         )
         self.assertEqual(len(list(output.glob("*.mp4"))), 2)
 
+    def test_marked_cuts_stop_at_video_end_when_audio_runs_longer(self):
+        video = self.root / "audio-tail.mp4"
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-itsoffset", "1", "-f", "lavfi",
+            "-i", "testsrc2=size=160x90:rate=10:duration=2",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=6",
+            "-c:v", "libx264", "-c:a", "aac", str(video),
+        ], check=True)
+        command = [
+            sys.executable, str(CLI), "--video", str(video),
+            "--before", "1", "--after", "2",
+        ]
+        output = self.root / "near-video-end"
+        result = subprocess.run([
+            *command, "--preview", "--at", "2.5", "--out", str(output),
+        ], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["clips"][0]["end_seconds"], 3)
+
+        tail_output = self.root / "after-video-end"
+        result = subprocess.run([
+            *command, "--at", "4", "--out", str(tail_output),
+        ], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Timestamp 4s falls outside", result.stderr)
+        self.assertFalse(tail_output.exists())
+
     def test_matching_chat_export_can_exceed_video_end_by_a_few_seconds(self):
         source = json.loads(self.chat.read_text())
         source["video"] = {"length": 105}
