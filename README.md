@@ -1,6 +1,6 @@
 # Chat Clip Finder
 
-Turn an existing GTA V Twitch recording into a shortlist of highlight drafts. The finder uses chat volume to suggest where to look and exports vertical MP4s for review.
+Turn an existing GTA V Twitch recording into a shortlist of highlight drafts. The finder uses chat volume to suggest where to look. For any local gameplay recording, you can also supply the moments yourself. Both modes export vertical MP4s for review.
 
 Requires Python 3.10+ and FFmpeg with `libx264` and `ffprobe` available on your PATH.
 
@@ -18,6 +18,14 @@ Each run creates a new directory. The report is `clips.json`. It records the can
 The finder counts messages every ten seconds and compares the count with the median over the preceding five minutes, or the available history after the first three buckets. By default, a spike needs at least ten messages and three times the baseline. The five strongest non-overlapping picks get twenty seconds before and after the spike timestamp, bounded by the recording. See `--help` for tuning. Export fits the full source frame inside a 1080 × 1920 canvas to preserve the gameplay HUD, subtitles and any facecam.
 
 Chat can spike for reasons unrelated to gameplay. Watch the drafts and check that each includes the setup and payoff.
+
+## Clip a local recording without chat
+
+```sh
+python3 clip_finder.py --video gta5.mp4 --at 01:18.5 --at 03:42 --before 8 --after 12 --out marked
+```
+
+Use seconds, `MM:SS`, or `HH:MM:SS`, with optional fractional seconds. Repeat `--at` for each moment. Explicit marks are preserved in input order, including overlapping clips. `--preview` also works in this mode.
 
 ## Verify locally
 
