@@ -13,7 +13,7 @@ python3 clip_finder.py --video vod.mp4 --chat chat.json --out preview --preview
 python3 clip_finder.py --video vod.mp4 --chat chat.json --out clips
 ```
 
-Each run creates a new directory. The report is `clips.json`. It records the candidates in rank order, cut boundaries in source seconds, message count, baseline and score. Preview writes the report without encoding video.
+Each run creates a new directory. The report is `clips.json`. It records the candidates in rank order, cut boundaries in source seconds, message count, baseline and score. Preview writes the report without encoding video. If no 10-second bucket reaches the message cutoff after the initial history, the CLI prints the highest eligible count. You can use that count to decide whether to try a lower `--min-messages`.
 
 The finder counts messages every ten seconds and compares the count with the median over the preceding five minutes, or the available history after the first three buckets. By default, a spike needs at least ten messages and three times the baseline. The five strongest non-overlapping picks get twenty seconds before and after the spike timestamp, bounded by the recording. See `--help` for tuning. Export fits the full source frame inside a 1080 × 1920 canvas to preserve the gameplay HUD, subtitles and any facecam.
 

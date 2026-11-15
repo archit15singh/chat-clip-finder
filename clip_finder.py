@@ -199,8 +199,16 @@ def positive_int(value):
 def run(args):
     duration = video_duration(args.video)
     skipped_tail_messages = 0
+    chat_activity = None
     if args.chat:
         counts, skipped_tail_messages = chat_counts(args.chat, duration, args.vod_start)
+        maximum = max((count for bucket, count in counts.items()
+                       if bucket >= MIN_HISTORY_BUCKETS), default=0)
+        chat_activity = {
+            "messages_counted": sum(counts.values()),
+            "buckets_with_messages": len(counts),
+            "maximum_messages_in_rankable_bucket": maximum,
+        }
         clips = chat_candidates(
             counts, duration, args.min_messages, args.min_ratio,
             args.before, args.after, args.limit, args.exclude,
@@ -243,6 +251,7 @@ def run(args):
             "mode": mode,
             "video_duration_seconds": duration,
             "skipped_tail_messages": skipped_tail_messages,
+            "chat_activity": chat_activity,
             "settings": settings,
             "clips": rows,
         }
@@ -261,6 +270,9 @@ def run(args):
             print(f"{span}  {clip.messages} messages ({clip.ratio:.1f}× baseline)")
     if skipped_tail_messages:
         print(f"Skipped {skipped_tail_messages} chat message(s) at or just after the video end.")
+    if chat_activity is not None and not clips and maximum < args.min_messages:
+        print(f"No rankable 10-second bucket reached --min-messages {args.min_messages} "
+              f"(maximum {maximum}).")
     print(f"{len(rows)} candidate(s). Report: {report_path}")
 
 
