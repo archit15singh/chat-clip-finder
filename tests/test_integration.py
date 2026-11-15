@@ -114,3 +114,21 @@ class ClipperIntegration(unittest.TestCase):
         report = json.loads((output / "clips.json").read_text())
         self.assertEqual(report["settings"]["excluded_ranges_seconds"], [[25, 40]])
         self.assertEqual([row["peak_seconds"] for row in report["clips"]], [60, 100])
+
+    def test_trimmed_twitch_chat_maps_original_seconds_to_local_cuts(self):
+        source = json.loads(self.chat.read_text())
+        source["video"] = {"length": 600, "start": 120, "end": 225}
+        for comment in source["comments"]:
+            comment["content_offset_seconds"] += 120
+        chat = self.root / "excerpt.json"
+        chat.write_text(json.dumps(source))
+        output = self.root / "excerpt"
+        result = self.clip(output, "--preview", "--vod-start", "02:00", chat=chat)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["settings"]["vod_start_seconds"], 120)
+        self.assertEqual([row["peak_seconds"] for row in report["clips"]], [50, 100])
+
+        result = self.clip(self.root / "wrong-start", "--preview", "--vod-start", "02:01", chat=chat)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("matching video interval", result.stderr)
