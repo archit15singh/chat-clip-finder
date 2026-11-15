@@ -85,3 +85,24 @@ class ClipperIntegration(unittest.TestCase):
             [(1.5, 0, 5.5), (103, 100, 105)],
         )
         self.assertEqual(len(list(output.glob("*.mp4"))), 2)
+
+    def test_matching_chat_export_can_exceed_video_end_by_a_few_seconds(self):
+        source = json.loads(self.chat.read_text())
+        source["video"] = {"length": 105}
+        source["comments"].extend([
+            {"content_offset_seconds": 105}, {"content_offset_seconds": 110},
+        ])
+        tail_chat = self.root / "tail.json"
+        tail_chat.write_text(json.dumps(source))
+        output = self.root / "tail"
+        result = self.clip(output, "--preview", chat=tail_chat)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["skipped_tail_messages"], 2)
+        self.assertEqual([row["peak_seconds"] for row in report["clips"]], [50, 100])
+
+        source["comments"].append({"content_offset_seconds": 140})
+        tail_chat.write_text(json.dumps(source))
+        result = self.clip(self.root / "far-tail", "--preview", chat=tail_chat)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("matching untrimmed VOD", result.stderr)

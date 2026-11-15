@@ -13,6 +13,7 @@ from tempfile import TemporaryDirectory
 BUCKET_SECONDS = 10
 BASELINE_BUCKETS = 30
 MIN_HISTORY_BUCKETS = 3
+CHAT_TAIL_TOLERANCE_SECONDS = 10
 
 
 @dataclass(frozen=True)
@@ -54,17 +55,27 @@ def chat_counts(chat, duration):
     if not isinstance(comments, list):
         raise ValueError("Expected a TwitchDownloader JSON export with a comments list")
 
+    vod = data.get("video")
+    export_duration = vod.get("length") if isinstance(vod, dict) else None
+    matching_duration = (
+        type(export_duration) in (int, float)
+        and abs(export_duration - duration) <= CHAT_TAIL_TOLERANCE_SECONDS
+    )
     counts = Counter()
+    skipped_tail_messages = 0
     for index, comment in enumerate(comments, start=1):
         offset = comment.get("content_offset_seconds") if isinstance(comment, dict) else None
         if type(offset) not in (int, float) or not math.isfinite(offset) or offset < 0:
             raise ValueError(f"Invalid content_offset_seconds on chat message {index}")
         if offset >= duration:
+            if matching_duration and offset - duration <= CHAT_TAIL_TOLERANCE_SECONDS:
+                skipped_tail_messages += 1
+                continue
             raise ValueError(
                 f"Chat message {index} falls beyond the recording. Use the matching untrimmed VOD."
             )
         counts[int(offset // BUCKET_SECONDS)] += 1
-    return counts
+    return counts, skipped_tail_messages
 
 
 def chat_candidates(counts, duration, min_messages, min_ratio, before, after, limit):
@@ -156,9 +167,11 @@ def positive_int(value):
 
 def run(args):
     duration = video_duration(args.video)
+    skipped_tail_messages = 0
     if args.chat:
+        counts, skipped_tail_messages = chat_counts(args.chat, duration)
         clips = chat_candidates(
-            chat_counts(args.chat, duration), duration, args.min_messages, args.min_ratio,
+            counts, duration, args.min_messages, args.min_ratio,
             args.before, args.after, args.limit,
         )
         mode = "chat"
@@ -196,6 +209,7 @@ def run(args):
         report = {
             "mode": mode,
             "video_duration_seconds": duration,
+            "skipped_tail_messages": skipped_tail_messages,
             "settings": settings,
             "clips": rows,
         }
@@ -212,6 +226,8 @@ def run(args):
             print(f"{span}  marked at {clip.peak_seconds:.2f}s")
         else:
             print(f"{span}  {clip.messages} messages ({clip.ratio:.1f}× baseline)")
+    if skipped_tail_messages:
+        print(f"Skipped {skipped_tail_messages} chat message(s) at or just after the video end.")
     print(f"{len(rows)} candidate(s). Report: {report_path}")
 
 
