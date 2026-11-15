@@ -40,7 +40,7 @@ The base uses the clipper from the named Git commit. The candidate runs from the
 - `unchanged` means coverage did not improve and no gate failed. Check the timing and operational evidence separately if the change fixes a bug.
 - `reject` means a label lost full coverage or an event hit, or a case exceeded its budget. A gain on another case cannot cancel the loss.
 
-A rejection writes evidence and exits 1. An execution or input error exits 2. The launcher retries ideas across the requested rounds and returns the final comparison status. These verdicts measure the supplied labels and budgets. Read the report and review novel outputs before promoting changes.
+A rejection writes evidence and exits 1. An execution or input error exits 2. The launcher records test and benchmark failures and passes their logs to the next round. A test failure makes the round ineligible even if the benchmark improves. The launcher returns the final round's combined status. These verdicts measure the supplied labels and budgets. Read the report and review novel outputs before promoting changes.
 
 ## First benchmark
 
