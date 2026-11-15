@@ -44,13 +44,13 @@ Use seconds, `MM:SS`, or `HH:MM:SS`, with optional fractional seconds. Repeat `-
 
 ## Measure how much of a highlight you captured
 
-Before looking at the ranked picks, mark the source intervals you would want to share. Include the setup and payoff. Save them as a JSON array in local video seconds, for example `[{"start_seconds": 120, "end_seconds": 145, "label": "Escape setup and payoff"}]`.
+Before looking at the ranked picks, mark the source intervals you would want to share. Include the setup and payoff. Save them as a JSON array in local video seconds, for example `[{"start_seconds": 120, "anchor_seconds": 138, "end_seconds": 145, "label": "Escape setup and payoff"}]`.
 
 ```sh
 python3 evaluate.py --report clips/clips.json --labels labels.json
 ```
 
-A moment is fully covered when one clip contains the entire labeled interval. Adjacent clips that each show part of the moment count as partial coverage. A candidate with no matching label may still be useful if the labels are incomplete. Compare settings on the same labeled footage before applying them to a different recording.
+A moment is fully covered when one clip contains the entire labeled interval. Adjacent clips that each show part of the moment count as partial coverage. Optional `anchor_seconds` marks the instant that must be visible, such as a crash or punchline. Anchor hits are reported separately from full cuts so you can tell when the finder spotted the event and the clip still needs trimming. A candidate with no matching label may still be useful if the labels are incomplete. Compare settings on the same labeled footage before applying them to a different recording.
 
 ## Verify locally
 
