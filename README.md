@@ -17,6 +17,8 @@ Each run creates a new directory. The report is `clips.json`. It records the can
 
 The finder counts messages every ten seconds and compares the count with the median over the preceding five minutes, or the available history after the first three buckets. By default, a spike needs at least ten messages and three times the baseline. The five strongest non-overlapping picks get twenty seconds before and after the spike timestamp, bounded by the recording. See `--help` for tuning. Export fits the full source frame inside a 1080 × 1920 canvas to preserve the gameplay HUD, subtitles and any facecam.
 
+When the chat export's VOD duration is within ten seconds of the local recording, messages up to ten seconds past the end are skipped and counted in the report. Later messages still fail validation.
+
 Chat can spike for reasons unrelated to gameplay. Watch the drafts and check that each includes the setup and payoff.
 
 ## Clip a local recording without chat
