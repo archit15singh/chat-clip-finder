@@ -31,16 +31,32 @@ def evaluate(report, labels):
 
     outcomes = []
     covering_candidates = set()
-    for label, (start, end) in zip(labels, moments):
+    labeled_anchors = 0
+    anchor_hits = 0
+    anchor_hits_without_full_context = 0
+    for number, (label, (start, end)) in enumerate(zip(labels, moments), start=1):
+        has_anchor = "anchor_seconds" in label
+        anchor = label.get("anchor_seconds")
+        if has_anchor and (type(anchor) not in (int, float) or not start <= anchor < end):
+            raise ValueError(f"Anchor must be inside labeled moment #{number}")
         full = []
         partial = []
+        hits = []
         for rank, (clip_start, clip_end) in enumerate(clips, start=1):
+            if has_anchor and clip_start <= anchor < clip_end:
+                hits.append(rank)
             if clip_start <= start and end <= clip_end:
                 full.append(rank)
             elif clip_start < end and start < clip_end:
                 partial.append(rank)
         covering_candidates.update(full)
-        outcomes.append({**label, "covered_by": full, "partially_covered_by": partial})
+        outcome = {**label, "covered_by": full, "partially_covered_by": partial}
+        if has_anchor:
+            labeled_anchors += 1
+            anchor_hits += bool(hits)
+            anchor_hits_without_full_context += bool(hits) and not full
+            outcome["anchor_found_by"] = hits
+        outcomes.append(outcome)
 
     fully_covered = sum(bool(row["covered_by"]) for row in outcomes)
     partially_covered = sum(not row["covered_by"] and bool(row["partially_covered_by"]) for row in outcomes)
@@ -52,6 +68,9 @@ def evaluate(report, labels):
         "missed": len(moments) - fully_covered - partially_covered,
         "full_coverage_rate": fully_covered / len(moments),
         "candidates_covering_a_label": len(covering_candidates),
+        "labeled_anchors": labeled_anchors,
+        "anchors_found": anchor_hits,
+        "anchors_found_without_full_context": anchor_hits_without_full_context,
         "moments": outcomes,
     }
 
