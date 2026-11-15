@@ -70,3 +70,18 @@ class ClipperIntegration(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("matching untrimmed VOD", result.stderr)
         self.assertFalse(output.exists())
+
+    def test_marked_gameplay_exports_with_no_chat(self):
+        output = self.root / "marks"
+        result = subprocess.run([
+            sys.executable, str(CLI), "--video", str(self.video), "--out", str(output),
+            "--at", "00:01.5", "--at", "0:01:43", "--before", "3", "--after", "4",
+        ], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["mode"], "timestamp")
+        self.assertEqual(
+            [(row["peak_seconds"], row["start_seconds"], row["end_seconds"]) for row in report["clips"]],
+            [(1.5, 0, 5.5), (103, 100, 105)],
+        )
+        self.assertEqual(len(list(output.glob("*.mp4"))), 2)

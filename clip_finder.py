@@ -20,9 +20,9 @@ class Candidate:
     start_seconds: float
     end_seconds: float
     peak_seconds: float
-    messages: int
-    baseline: float
-    ratio: float
+    messages: int | None = None
+    baseline: float | None = None
+    ratio: float | None = None
 
 
 def command_output(*command):
@@ -93,6 +93,38 @@ def chat_candidates(counts, duration, min_messages, min_ratio, before, after, li
     return selected
 
 
+def timestamp(value):
+    parts = value.split(":")
+    try:
+        if len(parts) == 1:
+            seconds = float(parts[0])
+        elif len(parts) in (2, 3):
+            seconds = float(parts[-1])
+            minutes = int(parts[-2])
+            hours = int(parts[0]) if len(parts) == 3 else 0
+            if not 0 <= seconds < 60 or minutes < 0 or hours < 0:
+                raise ValueError
+            if len(parts) == 3 and minutes >= 60:
+                raise ValueError
+            seconds += 60 * minutes + 3600 * hours
+        else:
+            raise ValueError
+        if not math.isfinite(seconds) or seconds < 0:
+            raise ValueError
+    except (ValueError, OverflowError):
+        raise argparse.ArgumentTypeError("expected seconds, MM:SS, or HH:MM:SS") from None
+    return seconds
+
+
+def marked_candidates(marks, duration, before, after):
+    selected = []
+    for mark in marks:
+        if mark >= duration:
+            raise ValueError(f"Timestamp {mark:g}s falls outside the {duration:g}s recording")
+        selected.append(Candidate(max(0, mark - before), min(duration, mark + after), mark))
+    return selected
+
+
 def render_clip(video, candidate, output):
     fit = (
         "scale=1080:1920:force_original_aspect_ratio=decrease:force_divisible_by=2,"
@@ -124,11 +156,15 @@ def positive_int(value):
 
 def run(args):
     duration = video_duration(args.video)
-    counts = chat_counts(args.chat, duration)
-    clips = chat_candidates(
-        counts, duration, args.min_messages, args.min_ratio,
-        args.before, args.after, args.limit,
-    )
+    if args.chat:
+        clips = chat_candidates(
+            chat_counts(args.chat, duration), duration, args.min_messages, args.min_ratio,
+            args.before, args.after, args.limit,
+        )
+        mode = "chat"
+    else:
+        clips = marked_candidates(args.at, duration, args.before, args.after)
+        mode = "timestamp"
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if args.out.exists():
         raise ValueError(f'Output directory already exists: {args.out}')
@@ -158,6 +194,7 @@ def run(args):
             if row["file"]:
                 render_clip(args.video, clip, staging / row["file"])
         report = {
+            "mode": mode,
             "video_duration_seconds": duration,
             "settings": settings,
             "clips": rows,
@@ -169,17 +206,22 @@ def run(args):
         for path in reserved[1:] + [report_path]:
             (staging / path.name).replace(path)
 
-    for row in rows:
-        clip = clips[row["rank"] - 1]
-        print(f'{row["rank"]:2}. {clip.start_seconds:8.1f}s–{clip.end_seconds:8.1f}s'
-              f'  {clip.messages} messages ({clip.ratio:.1f}× baseline)')
+    for rank, clip in enumerate(clips, start=1):
+        span = f"{rank:2}. {clip.start_seconds:8.1f}s–{clip.end_seconds:8.1f}s"
+        if clip.ratio is None:
+            print(f"{span}  marked at {clip.peak_seconds:.2f}s")
+        else:
+            print(f"{span}  {clip.messages} messages ({clip.ratio:.1f}× baseline)")
     print(f"{len(rows)} candidate(s). Report: {report_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Find Twitch VOD highlights from chat spikes.")
-    parser.add_argument("--video", type=Path, required=True, help="local, untrimmed VOD")
-    parser.add_argument("--chat", type=Path, required=True, help="TwitchDownloader JSON export")
+    parser = argparse.ArgumentParser(description="Cut gameplay clips from chat spikes or marked moments.")
+    parser.add_argument("--video", type=Path, required=True, help="local video file")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--chat", type=Path, help="TwitchDownloader JSON export for the untrimmed VOD")
+    source.add_argument("--at", action="append", type=timestamp, metavar="TIME",
+                        help="mark a timestamp (seconds, MM:SS or HH:MM:SS); repeat to cut more clips")
     parser.add_argument("--out", type=Path, default=Path("clips"))
     parser.add_argument("--preview", action="store_true", help="write selections without encoding")
     parser.add_argument("--limit", type=positive_int, default=5)
