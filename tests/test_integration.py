@@ -132,3 +132,12 @@ class ClipperIntegration(unittest.TestCase):
         result = self.clip(self.root / "wrong-start", "--preview", "--vod-start", "02:01", chat=chat)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("matching video interval", result.stderr)
+
+    def test_empty_ranking_explains_that_the_message_cutoff_was_unreachable(self):
+        output = self.root / "quiet"
+        result = self.clip(output, "--preview", "--min-messages", "50")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--min-messages 50 (maximum 31)", result.stdout)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["clips"], [])
+        self.assertEqual(report["chat_activity"]["maximum_messages_in_rankable_bucket"], 31)
