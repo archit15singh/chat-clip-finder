@@ -17,7 +17,7 @@ Run the repository checks with `python3 -m unittest discover -s tests -v`. Keep 
 - Run `youtube_expert` and `instagram_expert` in parallel for route-specific monetization, reference analysis, hooks, duration, and post analytics. Give the editor one testable change from their advice. Reuse publishing receipts and actual post age when asking for follow-up. See [platform experts](docs/platform-experts.md).
 - Run `campaign_expert` for a paid round. It checks the marketplace and sponsor terms, then hands the scout an eligible creator and source window. Attach those rules to the edit and publishing handoff. Send verified public receipts back for submission and track approval and payment separately. See [paid campaigns](docs/paid-campaign-workflow.md).
 - Run `distributor` after a verified release to identify where the scene fits and plan a useful community-native placement. Read the destination's rules and keep its permission, message, link, and measurement evidence with the placement. See [organic distribution](docs/studio-distributor.md).
-- Default to cleared sound and listen to the exact export during independent review. The queue checks for audio signal and accepts a trackless export only with a stated editorial or rights reason. See the [audio and editing guide](docs/editing-toolkit.md#keep-sound-through-the-edit).
+- Default to cleared sound and listen to the exact export during independent review. Keep audio files local when reviewing through Codex. Use the [audio and editing guide](docs/editing-toolkit.md#keep-sound-through-the-edit) for tool evidence and playback. The queue checks for audio signal and accepts a trackless export only with a stated editorial or rights reason.
 
 ## Browser use
 
