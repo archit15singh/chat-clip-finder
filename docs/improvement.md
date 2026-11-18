@@ -89,6 +89,8 @@ In the seaplane pilot, the first cut spent screen time on the scouting signal. T
 
 For a faster first pass, try `--before 10 --after 20` on the VOD clipper. In the four pinned cases, this reduced the total footage to review from 430 to 320 seconds, with the same event hits and complete scenes. Check the full setup and payoff in the source before choosing the final boundaries. The shorter window is an option for review, and the default remains appropriate when the setup starts earlier.
 
+When visual review shows that chat reacts during the setup, try moving two seconds of the preview from the lead-in to the ending with `--before 8 --after 22`. On the same pinned suite this recovered one complete Buddha scene, retained earlier hits, and took 318 seconds to review. The GTA VI basketball trial used this split around a missed shot and kept the second shot and reaction. Check the opening before using the shorter lead-in on another scene.
+
 ## Reuse existing tools
 
 Search before building an integration. Test a candidate against the actual channel or media format and record its license, pinned revision, setup time, and observed failure or success. Keep the adapter small so another tool can replace it.
