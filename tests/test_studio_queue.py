@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from review_media import review_export
+from studio_campaigns import CHECKS
 from studio_queue import LEASE_SECONDS, Queue
 
 
@@ -30,7 +31,7 @@ class StudioQueueTest(unittest.TestCase):
                 "ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"color={color}:s=90x160:d=1",
                 "-c:v", "libx264", str(video),
             ], check=True)
-            cls.media.append((video, review_export(video, root / color, (0,))))
+            cls.media.append((video, review_export(video, root / color, (0, 0.5))))
 
     def setUp(self):
         workspace = TemporaryDirectory()
@@ -54,6 +55,8 @@ class StudioQueueTest(unittest.TestCase):
             "artifact": str(artifact), "media_review": str(report),
             "source": {"id": "vod", "creator": "Creator", "reference": "local test",
                        "credit": "Creator on Twitch", "clock": "vod-offset", "start": 18, "end": 19},
+            "edit": {"duration_seconds": 1, "hook_seconds": 0, "payoff_seconds": 0.5,
+                     "source_spans": [[18, 19]]},
             "editorial_choice": "Open on the red frame", "experiment": "Test the opening",
             "sound": {"mode": "silent", "reason": "Generated fixture contains picture only"},
             "destinations": {
@@ -68,13 +71,27 @@ class StudioQueueTest(unittest.TestCase):
         return self.queue.review(staged["cut"], self.write("decision.json", {
             "reviewer": reviewer, "evidence": "Checked the opening, credit and phone-size frames",
             "verdict": "approve", "package_sha256": staged["package_sha256"],
+            "checks": {"source_and_rights": "Matched synthetic source",
+                       "hook_and_payoff": "Checked frames at 0 and 0.5",
+                       "sound_and_sync": "Confirmed trackless fixture"},
         }))
+
+    def preflight(self, claim, **overrides):
+        return self.write("preflight.json", {
+            "platform": claim["platform"], "account": claim["destination"]["account"],
+            "upload_file": claim["artifact"], "package_sha256": claim["package_sha256"], **overrides,
+        })
+
+    def begin(self, claim):
+        return self.queue.begin(claim["token"], self.preflight(claim))
 
     def receipt(self, claim, url, **overrides):
         copy = claim["destination"]
         data = {
             "account": copy["account"], "caption": copy["caption"], "visibility": "public",
             "artifact_sha256": claim["artifact_sha256"], "evidence": "Reopened the public post",
+            "playback": {"played": True, "hook_and_payoff_seen": True,
+                         "duration_seconds": 1, "sound_heard": False},
             "public_url": url, "public_at": datetime.fromtimestamp(self.now, timezone.utc).isoformat(),
         }
         if "title" in copy:
@@ -112,7 +129,7 @@ class StudioQueueTest(unittest.TestCase):
                 "ffmpeg", "-v", "error", "-i", str(self.media[0][0]), "-f", "lavfi", "-i", track,
                 "-t", "1", "-c:v", "copy", "-c:a", "aac", str(audio_file),
             ], check=True)
-            evidence = review_export(audio_file, audio_file.with_suffix(""), (0,))
+            evidence = review_export(audio_file, audio_file.with_suffix(""), (0, 0.5))
             package.update(artifact=str(audio_file), media_review=str(evidence))
             manifest.write_text(json.dumps(package))
             if peak_required:
@@ -121,6 +138,85 @@ class StudioQueueTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "non-silent audio"):
                     self.queue.stage(manifest)
         self.queue.stage(self.manifest(cut="silent", scene="silent"))
+
+    def test_edit_must_match_source_bounds_runtime_and_reviewed_beats(self):
+        file = self.manifest()
+        manifest = json.loads(file.read_text())
+        for edit, reason in (
+            ({**manifest["edit"], "source_spans": [[17, 19]]}, "source bounds"),
+            ({**manifest["edit"], "duration_seconds": 1.1}, "duration differs"),
+            ({**manifest["edit"], "payoff_seconds": 0.75}, "sample both"),
+        ):
+            with self.subTest(edit=edit), self.assertRaisesRegex(ValueError, reason):
+                self.queue.stage(self.write("wrong-edit.json", {**manifest, "edit": edit}))
+        staged = self.queue.stage(file)
+        with self.assertRaisesRegex(ValueError, "independent review evidence"):
+            self.queue.review(staged["cut"], self.write("incomplete.json", {
+                "reviewer": "different", "evidence": "summary", "verdict": "approve",
+                "package_sha256": staged["package_sha256"],
+            }))
+        self.assertIsNone(self.queue.claim("publisher"))
+
+    def test_loud_but_short_track_cannot_enter_queue(self):
+        manifest = json.loads(self.manifest().read_text())
+        audio_file = self.root / "short-sound.mp4"
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-i", str(self.media[0][0]), "-f", "lavfi",
+            "-i", "sine=frequency=440:duration=0.2", "-c:v", "copy", "-c:a", "aac", str(audio_file),
+        ], check=True)
+        evidence = review_export(audio_file, self.root / "short-sound-review", (0, 0.5))
+        manifest.update(artifact=str(audio_file), media_review=str(evidence), sound={
+            "mode": "original", "reason": "Test truncated sound", "rights_evidence": "Generated tone",
+        })
+        with self.assertRaisesRegex(ValueError, "cover the picture"):
+            self.queue.stage(self.write("short-sound.json", manifest))
+
+        padded = self.root / "padded-sound.mp4"
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-i", str(audio_file), "-af", "apad=whole_dur=1",
+            "-c:v", "copy", "-c:a", "aac", str(padded),
+        ], check=True)
+        evidence = review_export(padded, self.root / "padded-sound-review", (0, 0.5))
+        manifest.update(artifact=str(padded), media_review=str(evidence))
+        with self.assertRaisesRegex(ValueError, "brief spike"):
+            self.queue.stage(self.write("padded-sound.json", manifest))
+
+    def test_upload_preflight_and_campaign_are_bound_before_first_mutation(self):
+        manifest = json.loads(self.manifest().read_text())
+        manifest["destinations"].pop("instagram")
+        campaign = "https://contentrewards.com/c/campaigns/example"
+        manifest["campaign_url"] = campaign
+        staged = self.queue.stage(self.write("campaign-cut.json", manifest))
+        self.approve(staged)
+        claim = self.queue.claim("browser")
+        with self.assertRaisesRegex(ValueError, "selected account"):
+            self.queue.begin(claim["token"], self.preflight(claim, account="wrong"))
+        with self.assertRaisesRegex(ValueError, "approved package"):
+            self.queue.begin(claim["token"], self.preflight(claim, package_sha256="stale"))
+        with self.assertRaisesRegex(ValueError, "upload file differs"):
+            self.queue.begin(claim["token"], self.preflight(claim, upload_file=str(self.media[1][0])))
+        with self.assertRaisesRegex(ValueError, "campaign_brief"):
+            self.begin(claim)
+        now = datetime.fromtimestamp(self.now, timezone.utc)
+        brief = {
+            "provider": "content-rewards", "campaign_url": campaign,
+            "accounts": {"youtube": claim["destination"]["account"]}, "submission_platforms": ["youtube"],
+            "allowed_source_ids": ["vod"], "checks": {key: "Fixture evidence" for key in CHECKS},
+            "commissioned_at": (now - timedelta(hours=1)).isoformat(),
+            "recheck_at": (now + timedelta(minutes=1)).isoformat(),
+            "submission_window_minutes": 30, "preapproval_required": False,
+            "package_sha256": staged["package_sha256"],
+        }
+        preflight = self.preflight(claim, campaign_brief="campaign.json")
+        self.write("campaign.json", {**brief, "campaign_url": campaign + "-other"})
+        with self.assertRaisesRegex(ValueError, "sealed into the cut"):
+            self.queue.begin(claim["token"], preflight)
+        self.write("campaign.json", {**brief, "recheck_at": (now - timedelta(minutes=1)).isoformat()})
+        with self.assertRaisesRegex(ValueError, "stale"):
+            self.queue.begin(claim["token"], preflight)
+        self.assertEqual(self.queue.status()[0]["state"], "claimed")
+        self.write("campaign.json", brief)
+        self.assertEqual(self.queue.begin(claim["token"], preflight)["state"], "submitting")
 
     def test_review_binds_copy_and_revision(self):
         manifest = self.manifest()
@@ -183,7 +279,7 @@ class StudioQueueTest(unittest.TestCase):
     def test_public_readback_and_ambiguous_second_platform(self):
         self.approve(self.queue.stage(self.manifest()))
         youtube = self.queue.claim("worker")
-        self.assertEqual(self.queue.begin(youtube["token"])["state"], "submitting")
+        self.assertEqual(self.begin(youtube)["state"], "submitting")
         yt_url = "https://youtube.com/shorts/abcdefghijk?si=one"
         self.assertEqual(self.queue.remember(youtube["token"], yt_url), "abcdefghijk")
         with self.assertRaisesRegex(ValueError, "post ID"):
@@ -192,12 +288,18 @@ class StudioQueueTest(unittest.TestCase):
             self.queue.finish(youtube["token"], self.receipt(youtube, yt_url, public_at="2000-01-01T00:00:00Z"))
         with self.assertRaisesRegex(ValueError, "caption"):
             self.queue.finish(youtube["token"], self.receipt(youtube, yt_url, caption="Wrong"))
+        with self.assertRaisesRegex(ValueError, "Public playback"):
+            self.queue.finish(youtube["token"], self.receipt(youtube, yt_url, playback={}))
+        with self.assertRaisesRegex(ValueError, "sound must match"):
+            self.queue.finish(youtube["token"], self.receipt(youtube, yt_url, playback={
+                "played": True, "hook_and_payoff_seen": True, "duration_seconds": 1, "sound_heard": True,
+            }))
         proof = self.receipt(youtube, yt_url)
         self.assertEqual(self.queue.finish(youtube["token"], proof), "verified")
         self.assertEqual(self.queue.finish(youtube["token"], proof), "verified")
         instagram = self.queue.claim("worker")
         self.assertEqual(instagram["platform"], "instagram")
-        self.queue.begin(instagram["token"])
+        self.begin(instagram)
         self.now += LEASE_SECONDS + 1
         self.assertIsNone(self.queue.claim("other-worker"))
         states = {row["platform"]: row["state"] for row in self.queue.status()}
@@ -223,7 +325,7 @@ class StudioQueueTest(unittest.TestCase):
         self.approve(replacement)
         new = self.queue.claim("replacement")
         self.assertEqual((new["cut"], new["platform"]), ("revised-copy", "instagram"))
-        self.queue.begin(new["token"])
+        self.begin(new)
         self.queue.release(new["token"], "Lost upload result")
         restored = self.receipt(
             new, "https://instagram.com/reels/xyz/", prior_worker_stopped=True,
@@ -235,14 +337,14 @@ class StudioQueueTest(unittest.TestCase):
         for cut, media in (("first", 0), ("second", 1)):
             self.approve(self.queue.stage(self.manifest(cut=cut, scene=cut, media=media)))
         first = self.queue.claim("worker")
-        self.queue.begin(first["token"])
+        self.begin(first)
         youtube = "https://www.youtube.com/shorts/abcdefghijk?si=one"
         self.queue.finish(first["token"], self.receipt(first, youtube))
         instagram = self.queue.claim("worker")
-        self.queue.begin(instagram["token"])
+        self.begin(instagram)
         self.queue.finish(instagram["token"], self.receipt(instagram, "https://instagram.com/reel/one"))
         second = self.queue.claim("worker")
-        self.queue.begin(second["token"])
+        self.begin(second)
         with self.assertRaises(sqlite3.IntegrityError):
             proof = self.receipt(second, "https://youtube.com/shorts/abcdefghijk/?si=two")
             self.queue.finish(second["token"], proof)

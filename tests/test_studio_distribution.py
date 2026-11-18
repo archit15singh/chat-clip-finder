@@ -60,6 +60,16 @@ class DistributionTest(unittest.TestCase):
         with self.assertRaisesRegex(KeyError, "campaign_distribution_terms"):
             check_brief({**self.brief, "campaign": "marketplace-1"}, self.published, self.now)
 
+    def test_same_host_different_community_cannot_pass_readback(self):
+        plan = check_brief({**self.brief, "venue_url": "https://reddit.com/r/gaming"},
+                           self.published, self.now)
+        readback = {**self.make_readback(plan), "placement_url": "https://www.reddit.com/r/other/comments/x",
+                    "observed_venue_url": plan["venue_url"]}
+        with self.assertRaisesRegex(ValueError, "outside the planned community"):
+            check_placement(plan, readback, self.now)
+        readback["placement_url"] = "https://www.reddit.com/r/gaming/comments/x"
+        self.assertEqual(check_placement(plan, readback, self.now)["post_url"], plan["post_url"])
+
     def test_rejects_readbacks_for_other_venue_or_release_and_impossible_times(self):
         plan = check_brief(self.brief, self.published, self.now)
         readback = self.make_readback(plan)

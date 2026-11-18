@@ -3,7 +3,7 @@
 
 import argparse
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -158,7 +158,40 @@ def package_data(path):
         package["sound"] = {key: require_text(sound, key) for key in ("mode", "reason")}
         if package["sound"]["mode"] != "silent":
             package["sound"]["rights_evidence"] = require_text(sound, "rights_evidence")
+    if "edit" in raw:
+        edit = raw["edit"]
+        package["edit"] = {key: edit[key] for key in (
+            "duration_seconds", "hook_seconds", "payoff_seconds", "source_spans",
+        )}
+        if "campaign_url" in raw:
+            package["campaign_url"] = require_text(raw, "campaign_url")
     return package, artifact, evidence
+
+
+def finite_seconds(value):
+    return type(value) in (float, int) and math.isfinite(value) and value >= 0
+
+
+def check_edit(package, report):
+    edit = package.get("edit")
+    if not edit:
+        raise ValueError("Declare the edit duration, hook, payoff, and source spans")
+    duration, hook, payoff = (edit[key] for key in ("duration_seconds", "hook_seconds", "payoff_seconds"))
+    if not all(map(finite_seconds, (duration, hook, payoff))) or not hook <= payoff < duration:
+        raise ValueError("Hook and payoff must be ordered timestamps within the edit")
+    if not finite_seconds(report.get("video_seconds")) or abs(duration - report["video_seconds"]) > 0.05:
+        raise ValueError("Rendered duration differs from the edit plan")
+    source = package["source"]
+    spans = edit["source_spans"]
+    if not isinstance(spans, list) or not spans or any(
+        not isinstance(span, list) or len(span) != 2 or not all(map(finite_seconds, span))
+        or not source["start"] <= span[0] < span[1] <= source["end"] for span in spans
+    ):
+        raise ValueError("Each source span must be within the declared source bounds")
+    marks = [row["requested_seconds"] for row in report["frames"]]
+    if not all(any(finite_seconds(mark) and abs(mark - beat) < 0.001 for mark in marks)
+               for beat in (hook, payoff)):
+        raise ValueError("Media report must sample both declared hook and payoff")
 
 
 def check_sound(package, report):
@@ -174,6 +207,22 @@ def check_sound(package, report):
         math.isfinite(peak) and MIN_SIGNAL_PEAK_DBFS < peak <= 0
     ):
         raise ValueError("Regenerate the review report and verify non-silent audio in the final export")
+    tracks = {track["codec_type"]: track for track in report["probe"]["streams"]}
+    video_start, video_end = stream_bounds(tracks["video"])
+    audio_start, audio_end = stream_bounds(tracks["audio"])
+    if abs(video_start - audio_start) > 0.25 or abs(video_end - audio_end) > 0.25:
+        raise ValueError("Audio track must cover the picture from start to finish")
+    signal = report.get("audio_signal_seconds")
+    if not finite_seconds(signal) or signal < min(0.5, (video_end - video_start) / 2):
+        raise ValueError("Audible export needs more than a brief spike in an otherwise silent track")
+
+
+def stream_bounds(track):
+    start = float(track["start_time"])
+    duration = float(track["duration"])
+    if not math.isfinite(start) or not finite_seconds(duration) or duration == 0:
+        raise ValueError("Audio and video need measurable stream timing")
+    return start, start + duration
 
 
 
@@ -251,7 +300,9 @@ class Queue:
                 if previous["fingerprint"] != fingerprint:
                     raise ValueError("Cut ID already names a different package. Use a new revision ID.")
                 return {"cut": cut, "package_sha256": fingerprint}
-            check_sound(package, json.loads(evidence["review.json"]))
+            report = json.loads(evidence["review.json"])
+            check_sound(package, report)
+            check_edit(package, report)
             if self.db.execute(
                 "SELECT 1 FROM cuts WHERE artifact_sha256 = ? AND scene != ?", (digest, scene),
             ).fetchone():
@@ -328,6 +379,13 @@ class Queue:
                 for name, digest in cut["package"]["media_review_files"].items()
             ):
                 raise ValueError("Review evidence changed after staging")
+            if "edit" in cut["package"]:
+                if not isinstance(review.get("checks"), dict):
+                    raise ValueError("Record independent review evidence in checks")
+                checks = {key: require_text(review["checks"], key) for key in (
+                    "source_and_rights", "hook_and_payoff", "sound_and_sync",
+                )}
+                evidence = serialize({"summary": evidence, "checks": checks})
             if cut["reviewer"]:
                 if (reviewer, evidence) != (cut["reviewer"], cut["review_evidence"]):
                     raise ValueError("This package already has a different approval")
@@ -400,7 +458,7 @@ class Queue:
     def attempt(self, token):
         row = self.db.execute(
             """SELECT attempts.*, deliveries.state, deliveries.attempt_id, cuts.package, cuts.artifact,
-                      cuts.artifact_sha256 FROM attempts
+                      cuts.artifact_sha256, cuts.fingerprint, cuts.reviewer, cuts.replaced_by FROM attempts
                JOIN deliveries USING(cut_id,platform) JOIN cuts ON cuts.id = attempts.cut_id
                WHERE attempts.id = ?""", (token,),
         ).fetchone()
@@ -408,13 +466,44 @@ class Queue:
             raise ValueError("Unknown attempt")
         return row
 
-    def begin(self, token):
-        return self.extend(token, begin=True)
+    def begin(self, token, preflight=None):
+        return self.extend(token, begin=True, preflight=preflight)
+
+    def check_upload(self, row, package, preflight, now):
+        if preflight is None:
+            raise ValueError("Provide an upload preflight for this cut")
+        proof = read_json(preflight)
+        platform = row["platform"]
+        if (proof.get("platform") != platform
+            or proof.get("account") != package["destinations"][platform]["account"]):
+            raise ValueError("Upload preflight does not match the selected account and platform")
+        if proof.get("package_sha256") != row["fingerprint"]:
+            raise ValueError("Upload preflight must identify the approved package")
+        upload = (preflight.parent / require_text(proof, "upload_file")).resolve()
+        if artifact_digest(upload) != row["artifact_sha256"]:
+            raise ValueError("Selected upload file differs from the approved artifact")
+        if "campaign_url" in package:
+            from studio_campaigns import prepare
+            if "campaign_brief" not in proof:
+                raise ValueError("Upload preflight requires a campaign_brief")
+            brief = read_json(preflight.parent / require_text(proof, "campaign_brief"))
+            receipts = {
+                target: json.loads(receipt)
+                for target, receipt in self.db.execute(
+                    "SELECT platform, receipt FROM deliveries WHERE cut_id = ? AND state = 'verified'",
+                    (row["cut_id"],),
+                )
+            }
+            cut = (package, row["reviewer"], row["fingerprint"], row["replaced_by"], receipts)
+            prepare(
+                brief, row["cut_id"], cut, datetime.fromtimestamp(now, timezone.utc),
+                phase="preflight", platform=platform,
+            )
 
     def renew(self, token):
         return self.extend(token, begin=False)
 
-    def extend(self, token, *, begin):
+    def extend(self, token, *, begin, preflight=None):
         with self.transaction():
             now = self.clock()
             row = self.attempt(token)
@@ -430,6 +519,9 @@ class Queue:
                         (row["cut_id"],),
                     )
                 return {"state": target}
+            package = json.loads(row["package"])
+            if begin and "edit" in package:
+                self.check_upload(row, package, preflight, now)
             expires = now + LEASE_SECONDS
             if begin:
                 self.db.execute("UPDATE deliveries SET state = 'submitting' WHERE attempt_id = ?", (token,))
@@ -474,7 +566,8 @@ class Queue:
             self.expire(now)
             row = self.attempt(token)
             platform = row["platform"]
-            target = json.loads(row["package"])["destinations"][platform]
+            package = json.loads(row["package"])
+            target = package["destinations"][platform]
             evidence = require_text(proof, "evidence")
             if require_text(proof, "account") != target["account"]:
                 raise ValueError("Readback account differs from the reviewed destination")
@@ -492,6 +585,18 @@ class Queue:
                         raise ValueError(f"Readback {key} differs from reviewed copy")
                 if proof.get("visibility") != "public" or proof.get("artifact_sha256") != row["artifact_sha256"]:
                     raise ValueError("Confirm public visibility and the uploaded local artifact hash")
+                if "edit" in package:
+                    playback = proof.get("playback", {})
+                    played_duration = playback.get("duration_seconds")
+                    if (playback.get("played") is not True or playback.get("hook_and_payoff_seen") is not True
+                        or not finite_seconds(played_duration)
+                        or abs(played_duration - package["edit"]["duration_seconds"]) > 1):
+                        raise ValueError("Public playback must show the reviewed hook, payoff and duration")
+                    if playback.get("sound_heard") is not package["audio_present"]:
+                        raise ValueError("Public playback sound must match the approved cut")
+                    result["playback"] = {key: playback[key] for key in (
+                        "played", "hook_and_payoff_seen", "duration_seconds", "sound_heard",
+                    )}
                 post_id, url = permalink(platform, require_text(proof, "public_url"))
                 if row["remote_post_id"] not in (None, post_id):
                     raise ValueError("Receipt differs from the post ID recorded during upload")
@@ -580,7 +685,9 @@ def main():
     for name in ("begin", "renew", "remember", "release", "finish", "reconcile"):
         command = commands.add_parser(name)
         command.add_argument("token")
-        if name == "release":
+        if name == "begin":
+            command.add_argument("--preflight", type=Path)
+        elif name == "release":
             command.add_argument("--evidence", required=True)
         elif name == "remember":
             command.add_argument("public_url")
@@ -597,7 +704,7 @@ def main():
         with sqlite3.connect(database, timeout=15) as connection:
             queue = Queue(connection, database.with_suffix(database.suffix + ".media"))
             result = getattr(queue, command)(**args)
-    except (OSError, sqlite3.Error, ValueError, KeyError, TypeError, AttributeError) as error:
+    except (OSError, sqlite3.Error, ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
         parser.exit(2, f"studio queue: {error}\n")
     print(json.dumps(result, indent=2, ensure_ascii=False))
 

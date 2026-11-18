@@ -15,7 +15,8 @@ class ObservationTest(unittest.TestCase):
             "metric_source": "Shorts analytics",
             "metrics": {"Views": 0, "Stayed to watch (%)": None},
         }
-        checked, = check_observations([row], published, now)
+        checked, = check_observations([{**row, "milestone_hours": 24}], published, now)
+        self.assertEqual(checked["milestone_hours"], 24)
         self.assertEqual(checked["age_seconds"], 88200)
         self.assertEqual(checked["url"], "https://www.youtube.com/shorts/abcdefghijk")
         self.assertEqual(checked["metrics"], row["metrics"])
@@ -25,6 +26,8 @@ class ObservationTest(unittest.TestCase):
             ({"observed_at": "2026-11-22T00:00:00Z"}, "between publication and now"),
             ({"observed_at": "2026-11-20T01:00:00"}, "time zone"),
             ({"metrics": {"Views": False}}, "nonnegative metrics"),
+            ({"observed_at": "2026-11-19T00:10:00Z", "milestone_hours": 24}, "milestone window"),
+            ({"observed_at": "2026-11-20T04:00:00Z", "milestone_hours": 24}, "milestone window"),
         ):
             with self.subTest(overrides=overrides), self.assertRaisesRegex(ValueError, message):
                 check_observations([{**row, **overrides}], published, now)

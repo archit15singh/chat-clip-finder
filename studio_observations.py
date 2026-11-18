@@ -18,6 +18,21 @@ def timestamp(value):
     return moment.astimezone(timezone.utc)
 
 
+# Allow a practical collection window while keeping late readbacks out of matched-age comparisons.
+MILESTONE_LAG_HOURS = {24: 1, 72: 3, 168: 7}
+
+
+def checked_milestone(row, age_seconds):
+    if "milestone_hours" not in row:
+        return {}
+    hours = row["milestone_hours"]
+    if type(hours) is not int or hours not in MILESTONE_LAG_HOURS:
+        raise ValueError("Use a 24, 72 or 168 hour milestone")
+    if not hours * 3600 <= age_seconds <= (hours + MILESTONE_LAG_HOURS[hours]) * 3600:
+        raise ValueError("Actual post age is outside the named milestone window")
+    return {"milestone_hours": hours}
+
+
 def check_observations(rows, published, now):
     if not isinstance(rows, list) or not rows:
         raise ValueError("Expected an array of analytics observations")
@@ -35,6 +50,8 @@ def check_observations(rows, published, now):
             observed = timestamp(require_text(row, "observed_at"))
             if not public_at <= observed <= now:
                 raise ValueError("Observation must fall between publication and now")
+            age = (observed - public_at).total_seconds()
+            milestone = checked_milestone(row, age)
             source = require_text(row, "metric_source")
             metrics = row["metrics"]
             if not isinstance(metrics, dict) or not metrics:
@@ -53,7 +70,7 @@ def check_observations(rows, published, now):
         checked.append({
             "cut": cut, "platform": platform, "url": url,
             "published_at": public_at.isoformat(), "observed_at": observed.isoformat(),
-            "age_seconds": (observed - public_at).total_seconds(),
+            "age_seconds": age, **milestone,
             "metric_source": source, "metrics": metrics,
         })
     return checked
