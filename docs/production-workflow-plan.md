@@ -8,22 +8,38 @@ Run After the Spike like a small GTA VI editorial studio. Learn from specific cr
 
 ```mermaid
 flowchart LR
-    R["Research agents<br/>Creator references and technique tests"] --> P["Versioned playbook<br/>Patterns, ideas and templates"]
-    S["Scout agents<br/>Live chat and replay evidence"] --> C["Candidate list<br/>Timed scenes and reuse scope"]
-    P --> E["Editor<br/>Compare two treatments"]
-    C --> E
-    E --> Q{"Independent review<br/>Story, export, copy and rights"}
-    Q -->|Revise| E
-    Q -->|Exception| H["User decision"]
-    H -->|Resolved| Q
-    Q -->|Pass| D["Publishing queue<br/>Exact cut and separate deliveries"]
-    D --> Y["YouTube Short"]
-    D --> I["Instagram Reel"]
-    D -. "When available" .-> T["Native Twitch Clip"]
-    Y --> M["Verify links and compare analytics at matched post ages"]
-    I --> M
-    T --> M
-    M --> R
+    subgraph Learn["Learn and brief"]
+      R["Saved clips → reference learner<br/>Frames + local transcript"]
+      P["YouTube + Instagram experts<br/>Playbook and editorial test"]
+      C["Campaign expert<br/>Eligible creator, rights and deadline"]
+      R --> P
+    end
+    subgraph Make["Scout, edit and verify"]
+      S["Scout<br/>Twitch moment and source evidence"]
+      E["Editor<br/>Two cuts with cleared sound"]
+      Q{"Independent reviewer<br/>Story, rights, file and sound"}
+      U["Queue → uploader<br/>Shorts and Reels"]
+      S --> E --> Q
+      Q -->|Approved| U
+      Q -->|Revise| E
+    end
+    subgraph Release["Read back and learn"]
+      V["Verified public receipts<br/>Copy, playback and sound"]
+      D["Distributor → community placement"]
+      M["Campaign submission → payout readback"]
+      A["Analyst → same-age performance"]
+      V --> D
+      V --> M
+      V --> A
+      D --> A
+    end
+    P --> S
+    P --> E
+    C --> S
+    U --> V
+    A --> P
+    M --> C
+    Q -. "Unresolved exception" .-> H["User"]
 ```
 
 ## Stage contracts and self-verification
