@@ -114,7 +114,7 @@ streamlink --stream-segmented-duration 60 --output .improvement/creator-one.ts \
   https://www.twitch.tv/creator_one 360p30
 ```
 
-Use a visible event shared with the replay to align the recording clock before using queued chat cues. The capture command's start time can differ from its first source frame because of buffering. Use the replay when alignment is uncertain.
+Use a visible event shared with the replay to align the recording clock before using queued chat cues. Use the replay origin plus the matched VOD offset for `--recording-start`. The capture command's start time and file timestamps can differ from the first source frame because of buffering. In one eight-second trial, four distinct audio matches agreed on the offset and two frame pairs confirmed it. The file's modification time was about 11 seconds after the matched start. Check the clock again for each new capture. Use the replay when alignment is uncertain.
 
 Grand Theft Auto VI is the default category. Repeat --game to watch channels across multiple categories. The names must match Twitch category names, ignoring case. The watcher records each stream's category in the buckets and cues and starts a fresh baseline when it detects a change.
 
