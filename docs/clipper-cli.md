@@ -44,6 +44,17 @@ python3 clip_finder.py --video gta5.mp4 --at 01:18.5 --at 03:42 --before 8 --aft
 
 Use seconds, `MM:SS`, or `HH:MM:SS`, with optional fractional seconds. Repeat `--at` for each moment. Explicit marks are preserved in input order, including overlapping clips. `--preview` also works in this mode.
 
+## Finish a spoken reaction at the cut
+
+Pass local SubRip captions on the same source clock as the recording. The flag works with a marked moment or range. Without it, explicit ranges stay exact.
+
+```sh
+python3 clip_finder.py --video excerpt.mp4 --range 11.75-25.25 \
+  --speech-srt excerpt.srt --out reaction-preview --preview
+```
+
+If the requested end falls inside a spoken cue, the finder follows adjacent speech fragments across gaps of up to 250 ms. It extends through the last fragment and gives it up to 350 ms of breathing room within the footage. Bracketed sound labels such as `[MUSIC]` do not extend the cut. The report records the requested end, detected speech end and whether the source ran out before the speech finished. Use the suggested timestamp in a custom edit or remove `--preview` to export the adjusted cut. Listen to the finished export and verify that the captions followed the actual line.
+
 ## Measure how much of a highlight you captured
 
 Before looking at the ranked picks, mark the source intervals you would want to share. Include the setup and payoff. Save them as a JSON array in local video seconds, for example `[{"start_seconds": 120, "anchor_seconds": 138, "end_seconds": 145, "label": "Escape setup and payoff"}]`.

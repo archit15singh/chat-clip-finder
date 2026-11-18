@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import json
 import math
 from pathlib import Path
+import re
 import statistics
 import subprocess
 import sys
@@ -15,6 +16,10 @@ BUCKET_SECONDS = 10
 BASELINE_BUCKETS = 30
 MIN_HISTORY_BUCKETS = 3
 CHAT_TAIL_TOLERANCE_SECONDS = 10
+SPEECH_GAP_SECONDS = 0.25
+SPEECH_POSTROLL_SECONDS = 0.35
+SRT_TIMESTAMP = r"\d{2,}:\d{2}:\d{2}[,.]\d{3}"
+SRT_TIMING = re.compile(rf"^({SRT_TIMESTAMP})\s+-->\s+({SRT_TIMESTAMP})(?:\s+.*)?$")
 
 
 @dataclass(frozen=True)
@@ -225,6 +230,49 @@ def timestamp_range(value):
     return start, end
 
 
+def speech_spans(srt):
+    text = srt.read_text(encoding="utf-8-sig").strip()
+    cues = []
+    for index, block in enumerate(re.split(r"\n[ \t]*\n", text) if text else (), 1):
+        lines = block.splitlines()
+        timing = 1 if lines[0].strip().isdigit() else 0
+        match = SRT_TIMING.fullmatch(lines[timing].strip()) if timing < len(lines) else None
+        if not match:
+            raise ValueError(f"Invalid SRT timing at cue {index} in {srt.name}")
+        try:
+            start, end = (timestamp(value.replace(",", ".")) for value in match.groups())
+        except argparse.ArgumentTypeError:
+            raise ValueError(f"Invalid SRT timing at cue {index} in {srt.name}") from None
+        if end <= start:
+            raise ValueError(f"Invalid SRT timing at cue {index} in {srt.name}")
+        spoken = re.sub(r"<[^>]*>|\[[^]]*\]", "", " ".join(lines[timing + 1:]))
+        if any(character.isalnum() for character in spoken):
+            cues.append((start, end))
+
+    spans = []
+    for start, end in sorted(cues):
+        if spans and start <= spans[-1][1] + SPEECH_GAP_SECONDS:
+            spans[-1] = (spans[-1][0], max(spans[-1][1], end))
+        else:
+            spans.append((start, end))
+    return spans
+
+
+def finish_reaction(clip, spans, duration):
+    for index, (start, end) in enumerate(spans):
+        if start <= clip.end_seconds < end:
+            next_start = spans[index + 1][0] if index + 1 < len(spans) else duration
+            out = min(duration, round(end + SPEECH_POSTROLL_SECONDS, 3))
+            if next_start < duration:
+                out = min(out, round(next_start - 0.04, 3))
+            return replace(clip, end_seconds=out), {
+                "requested_end_seconds": clip.end_seconds,
+                "speech_end_seconds": end,
+                "source_limited": duration < end,
+            }
+    return clip, None
+
+
 def marked_candidates(marks, duration, before, after):
     selected = []
     for mark in marks:
@@ -308,12 +356,18 @@ def run(args):
         "excluded_ranges_seconds": args.exclude,
         "vod_start_seconds": args.vod_start if args.vod_start is not None else 0,
     }
+    reactions = [None] * len(clips)
+    if args.speech_srt and clips:
+        spans = speech_spans(args.speech_srt)
+        clips, reactions = zip(*(finish_reaction(clip, spans, duration) for clip in clips))
     rows = []
-    for rank, clip in enumerate(clips, start=1):
+    for rank, (clip, reaction) in enumerate(zip(clips, reactions), start=1):
         filename = f"clip-{rank:02d}-{int(clip.peak_seconds):06d}s.mp4"
         rows.append({
             "rank": rank, **asdict(clip), "file": None if args.preview else filename,
         })
+        if reaction:
+            rows[-1]["speech_tail"] = reaction
 
     report_path = args.out / "clips.json"
     reserved = [report_path, *(args.out / row["file"] for row in rows if row["file"])]
@@ -371,6 +425,8 @@ def main():
                         help="mark a timestamp (seconds, MM:SS or HH:MM:SS); repeat to cut more clips")
     source.add_argument("--range", action="append", type=timestamp_range, metavar="START-END",
                         help="cut an exact source interval; repeat to cut more clips")
+    parser.add_argument("--speech-srt", type=Path, metavar="SRT",
+                        help="extend a marked range through speech, using cues on the source video clock")
     parser.add_argument("--out", type=Path, default=Path("clips"))
     parser.add_argument("--preview", action="store_true", help="write selections without encoding")
     parser.add_argument("--exclude", action="append", type=timestamp_range, default=[],
@@ -383,6 +439,8 @@ def main():
     parser.add_argument("--before", type=positive, default=20)
     parser.add_argument("--after", type=positive, default=20)
     args = parser.parse_args()
+    if args.speech_srt and args.chat:
+        parser.error("--speech-srt requires --range or --at")
     if not args.chat and (args.exclude or args.vod_start is not None):
         parser.error("--exclude and --vod-start require --chat")
     try:

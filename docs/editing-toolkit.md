@@ -77,6 +77,8 @@ Use the final portrait H.264 MP4 with AAC or no audio. Specify export-relative s
 
 ## Keep sound through the edit
 
+Check the spoken reaction at the planned out-point. If the streamer begins a relevant line near the end, leave room for the thought and a short pause. Use the [speech-tail preview](clipper-cli.md#finish-a-spoken-reaction-at-the-cut) for a suggested out-point when you have matched local captions. Then check the words and the transition against playback.
+
 Carry cleared creator reactions and game cues into the first cut. If an edit changes shot order, cut sound against the same source-file offsets and listen across the joins. Use clean original audio or commissioned sound with documented rights where the source mix cannot be cleared. Keep the scene readable on mute, and record why when an intentionally silent cut serves the scene or its rights constraints.
 
 In Codex, keep audio bytes on disk. Use `review_media.py --audio-evidence` for waveform, spectrum, gain and silence, and local Whisper when you need speech cues. Send the model text and image evidence only. On the GPT-6.2-Sol Codex route, returning audio through the tool's `audio()` helper can save an unsupported `input_audio` item in the conversation and cause later turns to fail with HTTP 400. Get an independent listener's verdict from local playback of the exact export. If playback is unavailable, record it as pending and hold approval.
