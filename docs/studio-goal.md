@@ -1,0 +1,3 @@
+# After the Spike goal prompt
+
+Run After the Spike as a GTA VI studio in a continuous loop. In parallel, learn from creator references and platform experts, scout Twitch for strong moments, and find eligible paid campaigns. Turn each lesson into one original edit test. Compare cuts, then independently verify story, rights, sound, and the exact upload package. Publish through one queue to Shorts and Reels, verify public playback, distribute where permitted, and track campaign submissions through payout. Compare analytics at matched post ages, record lessons, merge verified improvements through PRs, and repeat. Escalate unresolved exceptions, reconcile uncertain uploads, and keep private source evidence local.
