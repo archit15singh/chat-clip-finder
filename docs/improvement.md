@@ -65,6 +65,28 @@ Record what happened at a candidate timestamp, what context the draft needs, the
 
 When the source channel allows it, publish a native Twitch Clip and use an eligible capture for the reviewed Reels and Shorts edit. Record links for each platform, edit time and metrics at the same post age. Track Content Rewards eligibility and payout separately from publication. Choose one bottleneck to improve from the field evidence, and use the pinned VOD comparison before promoting a detector change.
 
+### Rank an archived broadcast before downloading video
+
+For an authorized public VOD, TwitchDownloaderCLI 1.56.5 recovered trimmed chat and video even when the Brave player showed a playback error. Download a few minutes of chat first, then fetch the footage around a promising timestamp.
+
+```sh
+TwitchDownloaderCLI chatdownload --id "$VOD_ID" --beginning 3480s --ending 3760s \
+  --threads 1 -o .improvement/replay-chat.json
+python3 scripts/rank-replay-chat.py .improvement/replay-chat.json --limit 3
+TwitchDownloaderCLI videodownload --id "$VOD_ID" --beginning 3624s --ending 3705s \
+  --threads 1 --ffmpeg-path "$(command -v ffmpeg)" -o .improvement/scene.mp4
+```
+
+The report counts messages in sliding ten-second windows and compares each to the median of its six immediately preceding ten-second windows. It returns nonoverlapping candidates with at least ten messages and three times the baseline rate. An empty list indicates that no window reached both thresholds. Review the footage around each returned VOD offset to establish the cause and select the actual boundaries.
+
+### Review the edit as a viewer
+
+Watch the first two seconds and the full cut on mute. Open on the action or a line that establishes what the creator wants. Check that the obstacle, result, and reaction are visible on a phone-sized preview. For an edit with audio, review the permitted source track and caption the dialogue. For a silent edit, use short on-screen context for facts a viewer can verify in the scene. Keep chat counts, ratios, and detection details in the run log. Include a chat message in the cut only when it explains something happening in the scene, such as a viewer command the creator follows.
+
+An initial profile review found clear stakes over gameplay in Spaceboy's first displayed Reel frames, a direct scene opening with a linked longer source in NoPixel Clips, and a full portrait gameplay crop with readable original dialogue in GTA Series Videos. Spaceboy's profile also showed a viewer command in a series where chat directs the character. These are editorial references from a small sample. [Spaceboy Reel](https://www.instagram.com/spaceboyreels/reel/Dfbxv53Bur-/) · [NoPixel Short](https://www.youtube.com/shorts/l7AJgFeXuec) · [GTA Series Short](https://www.youtube.com/shorts/Ocr0VNk_rlI)
+
+In the seaplane pilot, the first cut spent screen time on the scouting signal. The silent review cut establishes the takeoff attempt immediately and keeps the facecam visible through the mission failure. Apply the same review to the next independently selected scene before inferring any effect on viewer retention.
+
 ## Reuse existing tools
 
 Search before building an integration. Test a candidate against the actual channel or media format and record its license, pinned revision, setup time, and observed failure or success. Keep the adapter small so another tool can replace it.
