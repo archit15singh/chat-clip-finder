@@ -1,12 +1,26 @@
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+from threading import Thread
 import unittest
 
 CLI = Path(__file__).resolve().parents[1] / "clip_finder.py"
+
+
+class QuietHTTPHandler(SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def copyfile(self, source, outputfile):
+        try:
+            super().copyfile(source, outputfile)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "needs FFmpeg and ffprobe")
@@ -21,7 +35,8 @@ class ClipperIntegration(unittest.TestCase):
         subprocess.run([
             "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=5",
             "-f", "lavfi", "-i", "sine=frequency=440", "-t", "105",
-            "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(cls.video),
+            "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-movflags", "+faststart",
+            str(cls.video),
         ], check=True)
         offsets = [*range(0, 105, 10), *([51] * 30), *([60] * 15), *([100] * 12)]
         cls.chat.write_text(json.dumps({
@@ -85,6 +100,48 @@ class ClipperIntegration(unittest.TestCase):
             [(1.5, 0, 5.5), (103, 100, 105)],
         )
         self.assertEqual(len(list(output.glob("*.mp4"))), 2)
+
+    def clip_url_range(self, path, target):
+        with ThreadingHTTPServer(
+            ("127.0.0.1", 0), partial(QuietHTTPHandler, directory=self.root),
+        ) as server:
+            thread = Thread(target=server.serve_forever)
+            thread.start()
+            try:
+                url = f"http://127.0.0.1:{server.server_port}/{path}"
+                output = self.root / target
+                result = subprocess.run([
+                    sys.executable, str(CLI), "--video-url", url,
+                    "--range", "00:12-00:42", "--out", str(output),
+                ], text=True, capture_output=True, timeout=20)
+            finally:
+                server.shutdown()
+                thread.join()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((output / "clips.json").read_text())
+        self.assertEqual(report["source_url"], url.split("?")[0])
+        self.assertEqual(report["mode"], "range")
+        row, = report["clips"]
+        self.assertEqual((row["start_seconds"], row["end_seconds"]), (12, 42))
+        probe = json.loads(subprocess.check_output([
+            "ffprobe", "-v", "error", "-show_entries",
+            "stream=codec_type,width,height:format=duration", "-of", "json", str(output / row["file"]),
+        ]))
+        video, audio = probe["streams"]
+        self.assertEqual((video["width"], video["height"]), (1080, 1920))
+        self.assertEqual(audio["codec_type"], "audio")
+        self.assertAlmostEqual(float(probe["format"]["duration"]), 30, delta=0.25)
+
+    def test_exact_range_from_direct_media_url_writes_source_and_vertical_clip(self):
+        self.clip_url_range("vod.mp4?token=example", "remote-range")
+
+    @unittest.skipUnless(shutil.which("yt-dlp"), "needs yt-dlp")
+    def test_completed_video_page_resolves_and_renders_only_the_selected_section(self):
+        (self.root / "watch.html").write_text(
+            '<html><head><title>Test VOD</title></head>'
+            '<body><video controls src="vod.mp4"></video></body></html>'
+        )
+        self.clip_url_range("watch.html", "watch-page-range")
 
     def test_marked_cuts_stop_at_video_end_when_audio_runs_longer(self):
         video = self.root / "audio-tail.mp4"

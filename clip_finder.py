@@ -9,6 +9,7 @@ import statistics
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+from urllib.parse import urlsplit, urlunsplit
 
 BUCKET_SECONDS = 10
 BASELINE_BUCKETS = 30
@@ -35,12 +36,13 @@ def command_output(*command):
 
 
 def video_duration(video):
-    if not video.is_file():
+    if isinstance(video, Path) and not video.is_file():
         raise ValueError(f"Video file not found: {video}")
+    network_options = ("-rw_timeout", "15000000") if isinstance(video, str) else ()
     probe = json.loads(command_output(
         "ffprobe", "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=start_time,duration:format=start_time,duration",
-        "-of", "json", str(video),
+        "-of", "json", *network_options, str(video),
     ))
     if not probe.get("streams"):
         raise ValueError(f"No video stream in {video}")
@@ -61,6 +63,57 @@ def video_duration(video):
     if math.isfinite(video_end) and video_end > 0:
         return min(duration, video_end)
     return duration
+
+
+def video_url(value):
+    try:
+        parts = urlsplit(value)
+        if parts.scheme not in ("http", "https") or not parts.hostname or parts.username is not None:
+            raise ValueError
+    except ValueError:
+        raise argparse.ArgumentTypeError("expected an HTTP or HTTPS video URL without credentials") from None
+    return value
+
+
+def is_media_url(url):
+    return Path(urlsplit(url).path).suffix.lower() in {
+        ".mp4", ".mov", ".mkv", ".webm", ".m3u8",
+    }
+
+
+def page_video_duration(url):
+    metadata = json.loads(command_output(
+        "yt-dlp", "--ignore-config", "--no-playlist", "--skip-download", "--dump-single-json", "--", url,
+    ))
+    if metadata.get("_type") in ("playlist", "multi_video") or metadata.get("is_live"):
+        raise ValueError("Use a single completed video or VOD")
+    duration = metadata.get("duration")
+    if type(duration) in (int, float) and math.isfinite(duration) and duration > 0:
+        return duration
+    media = metadata.get("url")
+    if isinstance(media, str) and metadata.get("protocol") in ("http", "https"):
+        return video_duration(media)
+    raise ValueError("Could not determine the video duration. Use a completed VOD or direct media URL.")
+
+
+def render_page_clip(url, clip, output):
+    length = clip.end_seconds - clip.start_seconds
+    with TemporaryDirectory(dir=output.parent) as work:
+        result = command_output(
+            "yt-dlp", "--ignore-config", "--no-playlist", "--no-progress", "--no-simulate",
+            "--match-filter", "!is_live",
+            "--download-sections", f"*{clip.start_seconds:.6f}-{clip.end_seconds:.6f}",
+            "--force-keyframes-at-cuts", "--print", "after_move:filepath",
+            "--output", str(Path(work) / "section.%(ext)s"), "--", url,
+        ).splitlines()
+        if len(result) != 1:
+            raise ValueError("Expected exactly one downloaded clip section")
+        section = Path(result[0])
+        if section.parent.resolve() != Path(work).resolve():
+            raise ValueError("Downloaded section is outside the staging directory")
+        if video_duration(section) + min(0.35, length / 2) < length:
+            raise ValueError("Downloaded section is shorter than the requested clip")
+        render_clip(section, Candidate(0, length, 0), output)
 
 
 def chat_counts(chat, duration, vod_start=None):
@@ -186,9 +239,10 @@ def render_clip(video, candidate, output):
         "scale=1080:1920:force_original_aspect_ratio=decrease:force_divisible_by=2,"
         "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1"
     )
+    network_options = ("-rw_timeout", "15000000") if isinstance(video, str) else ()
     command_output(
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-n",
-        "-ss", str(candidate.start_seconds), "-i", str(video),
+        "-ss", str(candidate.start_seconds), *network_options, "-i", str(video),
         "-t", str(candidate.end_seconds - candidate.start_seconds),
         "-map", "0:v:0", "-map", "0:a:0?", "-vf", fit, "-c:v", "libx264",
         "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p",
@@ -211,7 +265,11 @@ def positive_int(value):
 
 
 def run(args):
-    duration = video_duration(args.video)
+    if args.out.exists():
+        raise ValueError(f'Output directory already exists: {args.out}')
+    video = args.video_url if args.video_url is not None else args.video
+    page_url = args.video_url is not None and not is_media_url(args.video_url)
+    duration = page_video_duration(video) if page_url else video_duration(video)
     skipped_tail_messages = 0
     chat_activity = None
     if args.chat:
@@ -228,12 +286,17 @@ def run(args):
             args.before, args.after, args.limit, args.exclude,
         )
         mode = "chat"
-    else:
+    elif args.at:
         clips = marked_candidates(args.at, duration, args.before, args.after)
         mode = "timestamp"
+    else:
+        clips = []
+        for start, end in args.range:
+            if end > duration:
+                raise ValueError(f"Clip end {end:g}s falls outside the {duration:g}s recording")
+            clips.append(Candidate(start, end, start))
+        mode = "range"
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    if args.out.exists():
-        raise ValueError(f'Output directory already exists: {args.out}')
     settings = {
         "bucket_seconds": BUCKET_SECONDS,
         "baseline_seconds": BASELINE_BUCKETS * BUCKET_SECONDS,
@@ -260,7 +323,10 @@ def run(args):
         staging = Path(temp)
         for clip, row in zip(clips, rows):
             if row["file"]:
-                render_clip(args.video, clip, staging / row["file"])
+                if page_url:
+                    render_page_clip(video, clip, staging / row["file"])
+                else:
+                    render_clip(video, clip, staging / row["file"])
         report = {
             "mode": mode,
             "video_duration_seconds": duration,
@@ -269,6 +335,10 @@ def run(args):
             "settings": settings,
             "clips": rows,
         }
+        if args.video_url is not None:
+            parts = urlsplit(args.video_url)
+            report["source_url"] = (args.video_url if page_url else
+                                    urlunsplit((parts.scheme, parts.netloc, parts.path, "", "")))
         (staging / report_path.name).write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8",
         )
@@ -292,11 +362,15 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Cut gameplay clips from chat spikes or marked moments.")
-    parser.add_argument("--video", type=Path, required=True, help="local video file")
+    video = parser.add_mutually_exclusive_group(required=True)
+    video.add_argument("--video", type=Path, help="local video file")
+    video.add_argument("--video-url", type=video_url, help="authorized direct media or completed video URL")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--chat", type=Path, help="TwitchDownloader JSON export paired with the video")
     source.add_argument("--at", action="append", type=timestamp, metavar="TIME",
                         help="mark a timestamp (seconds, MM:SS or HH:MM:SS); repeat to cut more clips")
+    source.add_argument("--range", action="append", type=timestamp_range, metavar="START-END",
+                        help="cut an exact source interval; repeat to cut more clips")
     parser.add_argument("--out", type=Path, default=Path("clips"))
     parser.add_argument("--preview", action="store_true", help="write selections without encoding")
     parser.add_argument("--exclude", action="append", type=timestamp_range, default=[],

@@ -65,3 +65,12 @@ Inspired by [@ai.with.raiyan's Twitch chat spike reel](https://www.instagram.com
 ## Improve the clipper with Codex
 
 Use the project skill `$clipper-improvement` to run one round, or run the [local improvement launcher](docs/improvement.md) for a series of rounds with the same evidence.
+
+## Cut a clip from a video URL
+
+For footage you have permission to use, pass a direct media URL or a supported completed video page. Direct MP4, MOV, MKV, WebM and HLS URLs go through FFmpeg. Install [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) for video pages. It requests the selected section. Save or wait for the replay before cutting a live watch page.
+
+    python3 clip_finder.py --video-url 'https://example.com/vod.mp4' --range 01:12-01:42 --out clips
+    python3 clip_finder.py --video-url 'https://example.com/watch' --at 01:30 --before 18 --after 12 --out clips
+
+Repeat the timestamp or range flag to cut more moments. The output directory contains vertical MP4 drafts and a clips.json manifest with the source and timeline offsets. Add --preview to see the boundaries before rendering.
