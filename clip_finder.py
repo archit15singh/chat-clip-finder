@@ -297,7 +297,7 @@ def render_clip(video, candidate, output):
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-n",
         "-ss", str(candidate.start_seconds), *network_options, "-i", str(video),
         "-t", str(candidate.end_seconds - candidate.start_seconds),
-        "-map", "0:v:0", "-map", "0:a:0?", "-vf", fit, "-c:v", "libx264",
+        "-map", "0:v:0", "-map", "0:a:0?", "-map_chapters", "-1", "-vf", fit, "-c:v", "libx264",
         "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-movflags", "+faststart", str(output),
     )
