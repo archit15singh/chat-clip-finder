@@ -4,6 +4,8 @@ Turn an existing GTA V Twitch recording into a shortlist of highlight drafts. Th
 
 Requires Python 3.10+ and FFmpeg with `libx264` and `ffprobe` available on your PATH.
 
+For After the Spike, see the [production workflow](docs/production-workflow-plan.md) for creator research, clip selection, editorial review, publishing, and feedback.
+
 ## Find clips
 
 Use the original, untrimmed recording and a JSON chat export from the same Twitch VOD. [TwitchDownloader](https://github.com/lay295/TwitchDownloader/blob/master/TwitchDownloaderCLI/README.md) can export both. Use footage you have permission to clip.
