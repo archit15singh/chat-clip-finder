@@ -77,6 +77,30 @@ class ClipperIntegration(unittest.TestCase):
             subprocess.run(["ffmpeg", "-v", "error", "-xerror", "-i", str(path),
                             "-f", "null", "-"], check=True)
 
+    def test_export_omits_source_chapters(self):
+        metadata = self.root / "chapters.ffmeta"
+        metadata.write_text(
+            ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=30000\ntitle=Source\n"
+        )
+        chaptered = self.root / "chaptered.mp4"
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-i", str(self.video), "-i", str(metadata),
+            "-map", "0", "-map_chapters", "1", "-c", "copy", str(chaptered),
+        ], check=True)
+        output = self.root / "chapter-cut"
+        result = subprocess.run([
+            sys.executable, str(CLI), "--video", str(chaptered),
+            "--range", "1-6", "--out", str(output),
+        ], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        probe = json.loads(subprocess.check_output([
+            "ffprobe", "-v", "error", "-show_chapters", "-show_entries",
+            "stream=codec_type:format=duration", "-of", "json", str(next(output.glob("*.mp4"))),
+        ]))
+        self.assertEqual(probe["chapters"], [])
+        self.assertEqual([stream["codec_type"] for stream in probe["streams"]], ["video", "audio"])
+        self.assertAlmostEqual(float(probe["format"]["duration"]), 5, delta=0.25)
+
     def test_mismatched_chat_fails_before_creating_outputs(self):
         chat = self.root / "mismatch.json"
         chat.write_text('{"comments":[{"content_offset_seconds":106}]}')
