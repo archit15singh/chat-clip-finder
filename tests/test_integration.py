@@ -101,6 +101,36 @@ class ClipperIntegration(unittest.TestCase):
         )
         self.assertEqual(len(list(output.glob("*.mp4"))), 2)
 
+    def test_speech_tail_includes_the_reaction_in_the_preview_and_export(self):
+        captions = self.root / "reaction.srt"
+        captions.write_text(
+            "1\n00:00:03,750 --> 00:00:04,500\nI thought\n\n"
+            "2\n00:00:04,620 --> 00:00:05,200\nit would fit.\n\n"
+            "3\n00:00:05,200 --> 00:00:07,000\n[MUSIC]\n\n"
+            "4\n00:00:09,000 --> 00:00:10,000\nDifferent conversation.\n"
+        )
+        for name, extra in (("reaction-preview", ["--preview"]), ("reaction-export", [])):
+            output = self.root / name
+            result = subprocess.run([
+                sys.executable, str(CLI), "--video", str(self.video),
+                "--range", "1-4", "--range", "6-7", "--speech-srt", str(captions),
+                "--out", str(output), *extra,
+            ], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rows = json.loads((output / "clips.json").read_text())["clips"]
+            self.assertEqual(rows[0]["end_seconds"], 5.55)
+            self.assertEqual(rows[0]["speech_tail"], {
+                "requested_end_seconds": 4, "speech_end_seconds": 5.2, "source_limited": False,
+            })
+            self.assertEqual(rows[1]["end_seconds"], 7)
+            self.assertNotIn("speech_tail", rows[1])
+            if not extra:
+                duration = subprocess.check_output([
+                    "ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries",
+                    "stream=duration", "-of", "csv=p=0", str(output / rows[0]["file"]),
+                ], text=True)
+                self.assertAlmostEqual(float(duration), 4.55, delta=0.2)
+
     def clip_url_range(self, path, target):
         with ThreadingHTTPServer(
             ("127.0.0.1", 0), partial(QuietHTTPHandler, directory=self.root),
