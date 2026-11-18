@@ -2,6 +2,8 @@
 
 Research, scouting and editing can run in parallel. A single publisher holds the Brave task tab. The local queue coordinates that handoff and records what the publisher actually verifies on the platform.
 
+Run `python3 studio_queue.py handoff` at the start of a round or after an interruption. It lists cuts awaiting independent review, approved deliveries, any attempt occupying the publisher slot, verified public links, and analytics times derived from the same receipts. Use `inspect CUT` to read the exact review package and `claim` to acquire the publishing lease.
+
 ## Prepare the handoff
 
 1. For archived Twitch chat, scout with `scripts/rank-replay-chat.py` and verify the selected moment in the VOD. Use `vod-offset` with seconds from the start of that VOD. For `clip_finder.py` on an excerpt, add the report's `settings.vod_start_seconds` to its local start and end.
@@ -55,7 +57,7 @@ Research, scouting and editing can run in parallel. A single publisher holds the
 }
 ```
 
-Use both destinations for a normal showcase. When a campaign permits only one, list only that destination so the queue creates exactly one delivery. Use a stable scene ID across alternate edits and copy revisions. Use a new cut ID and set `supersedes` to the prior cut ID when replacing a revision. Previously verified platforms keep their receipts on the earlier cut and are omitted from the replacement's work. Exact duplicate staging is idempotent while the source inputs are available. Use `inspect CUT` to recover the staged package if the staging response was lost and the original inputs have moved.
+Use both destinations for a normal showcase. When a campaign permits only one, list only that destination so the queue creates exactly one delivery. Use a stable scene ID across alternate edits and copy revisions. The queue rejects reuse of an exact Twitch-native clip under a different scene ID, including when the portrait rendition bytes differ. Use a new cut ID and set `supersedes` to the prior cut ID when replacing a revision. Previously verified platforms keep their receipts on the earlier cut and are omitted from the replacement's work. Exact duplicate staging is idempotent while the source inputs are available. Use `inspect CUT` to recover the staged package if the staging response was lost and the original inputs have moved.
 
 New cuts declare the expected edit length, hook and payoff timestamps in export seconds, and the ordered used spans in the declared source clock. Sample the two exact beat times with `review_media.py --at`. The gate checks that the rendered runtime matches the planned runtime within 50 ms. Source spans must lie within the declared range. Reordering, repeats, and retiming are allowed. For a paid cut, also put the exact `campaign_url` from the commissioned brief into the manifest before staging it.
 
