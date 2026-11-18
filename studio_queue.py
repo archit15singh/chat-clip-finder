@@ -3,7 +3,7 @@
 
 import argparse
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import json
 import math
@@ -505,6 +505,21 @@ class Queue:
     def reconcile(self, token, receipt):
         return self.record(token, receipt, recovery=True)
 
+    def milestones(self):
+        schedule = []
+        for delivery in self.status():
+            receipt = delivery["receipt"]
+            if delivery["state"] != "verified" or not receipt:
+                continue
+            published_at = datetime.fromisoformat(receipt["public_at"])
+            for age in (24, 72, 168):
+                schedule.append({
+                    "cut": delivery["cut_id"], "platform": delivery["platform"],
+                    "public_url": receipt["public_url"], "age_hours": age,
+                    "due_at": (published_at + timedelta(hours=age)).isoformat(),
+                })
+        return sorted(schedule, key=lambda sample: datetime.fromisoformat(sample["due_at"]))
+
     def history(self):
         records = [dict(row) for row in self.db.execute("SELECT * FROM attempts ORDER BY rowid")]
         for record in records:
@@ -551,6 +566,7 @@ def main():
             command.add_argument("receipt", type=Path)
     commands.add_parser("status")
     commands.add_parser("history")
+    commands.add_parser("milestones")
     args = vars(parser.parse_args())
     database = args.pop("queue").resolve()
     command = args.pop("command")
