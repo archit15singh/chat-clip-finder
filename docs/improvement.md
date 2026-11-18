@@ -87,6 +87,8 @@ An initial profile review found clear stakes over gameplay in Spaceboy's first d
 
 In the seaplane pilot, the first cut spent screen time on the scouting signal. The silent review cut establishes the takeoff attempt immediately and keeps the facecam visible through the mission failure. Apply the same review to the next independently selected scene before inferring any effect on viewer retention.
 
+For a faster first pass, try `--before 10 --after 20` on the VOD clipper. In the four pinned cases, this reduced the total footage to review from 430 to 320 seconds, with the same event hits and complete scenes. Check the full setup and payoff in the source before choosing the final boundaries. The shorter window is an option for review, and the default remains appropriate when the setup starts earlier.
+
 ## Reuse existing tools
 
 Search before building an integration. Test a candidate against the actual channel or media format and record its license, pinned revision, setup time, and observed failure or success. Keep the adapter small so another tool can replace it.
