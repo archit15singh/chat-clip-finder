@@ -107,6 +107,15 @@ Use the separate live CLI to watch Twitch channels and queue 30-second windows. 
 
 The watcher keeps separate baselines for each channel. It writes aggregate counts and the proposed windows without storing the chat messages. Set --recording-start to the Unix timestamp of the first frame of the aligned recording or replay.
 
+For a bounded capture from an authorized live source, [Streamlink](https://streamlink.github.io/cli.html#twitch) can write a local recording. Run the chat watcher separately.
+
+```sh
+streamlink --stream-segmented-duration 60 --output .improvement/creator-one.ts \
+  https://www.twitch.tv/creator_one 360p30
+```
+
+Use a visible event shared with the replay to align the recording clock before using queued chat cues. The capture command's start time can differ from its first source frame because of buffering. Use the replay when alignment is uncertain.
+
 Grand Theft Auto VI is the default category. Repeat --game to watch channels across multiple categories. The names must match Twitch category names, ignoring case. The watcher records each stream's category in the buckets and cues and starts a fresh baseline when it detects a change.
 
     python3 live_clipper.py watch creator_one creator_two --game 'Grand Theft Auto VI' --game 'Elden Ring' --out .improvement/multi-cues.jsonl --buckets-out .improvement/multi-buckets.jsonl
