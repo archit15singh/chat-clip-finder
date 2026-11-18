@@ -101,12 +101,12 @@ def package_data(path):
     clock = require_text(source, "clock")
     if clock not in {"vod-offset", "unix", "recording-offset"}:
         raise ValueError("Use vod-offset, unix, or recording-offset")
-    if set(raw["destinations"]) != set(PLATFORMS):
-        raise ValueError("Provide both YouTube and Instagram destinations")
+    targets = raw["destinations"]
+    if not isinstance(targets, dict) or not targets or set(targets) - set(PLATFORMS):
+        raise ValueError("Provide at least one supported destination: YouTube or Instagram")
 
     destinations = {}
-    for platform in PLATFORMS:
-        destination = raw["destinations"][platform]
+    for platform, destination in targets.items():
         if destination.get("reuse_cleared") is not True:
             raise ValueError(f"Confirm and record reuse scope for {platform}")
         keys = ["account", "caption", "rights_evidence"]
@@ -286,7 +286,7 @@ class Queue:
             shipped = {row["platform"] for row in already_public}
             self.db.executemany(
                 "INSERT INTO deliveries(cut_id,platform,state) VALUES (?,?,'ready')",
-                [(cut, platform) for platform in PLATFORMS if platform not in shipped],
+                [(cut, platform) for platform in package["destinations"] if platform not in shipped],
             )
         return {"cut": cut, "package_sha256": fingerprint}
 

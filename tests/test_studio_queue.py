@@ -81,6 +81,20 @@ class StudioQueueTest(unittest.TestCase):
             data["title"] = copy["title"]
         return self.write("receipt.json", {**data, **overrides})
 
+    def test_one_platform_campaign_does_not_create_another_delivery(self):
+        manifest = self.manifest()
+        package = json.loads(manifest.read_text())
+        instagram = package["destinations"].pop("instagram")
+        package["destinations"]["other"] = instagram
+        manifest.write_text(json.dumps(package))
+        with self.assertRaisesRegex(ValueError, "supported destination"):
+            self.queue.stage(manifest)
+        package["destinations"].pop("other")
+        manifest.write_text(json.dumps(package))
+        self.approve(self.queue.stage(manifest))
+        self.assertEqual([row["platform"] for row in self.queue.status()], ["youtube"])
+        self.assertEqual(self.queue.claim("publisher")["platform"], "youtube")
+
     def test_audio_is_required_unless_the_export_is_intentionally_silent(self):
         manifest = self.manifest()
         package = json.loads(manifest.read_text())
