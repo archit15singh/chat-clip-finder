@@ -45,3 +45,15 @@ A rejection writes evidence and exits 1. An execution or input error exits 2. Th
 ## First benchmark
 
 The local regression suite uses the Lysium, Burn, Diables, and Buddha excerpts from the earlier field runs. Comparing the same code and settings returned `unchanged`. A 50-second ending gained coverage on the suite and passed its review budgets. A 90-second ending exceeded Buddha's budget and returned `reject`. These are known examples and verify the gate. A default change still needs fresh evidence. [Field tests](field-tests.md)
+
+## Reuse existing tools
+
+Search before building an integration. Test a candidate against the actual channel or media format and record its license, pinned revision, setup time, and observed failure or success. Keep the adapter small so another tool can replace it.
+
+| Need | What to use |
+| --- | --- |
+| Local cuts and direct media | FFmpeg already renders the drafts. yt-dlp resolves supported completed video pages. [FFmpeg](https://github.com/FFmpeg/FFmpeg) · [yt-dlp](https://github.com/yt-dlp/yt-dlp) |
+| Twitch replay chat | The detector already reads TwitchDownloader exports. [TwitchDownloader](https://github.com/lay295/TwitchDownloader) |
+| Kick footage | The native clip tool supports live streams and replays and offers an MP4 download after a native clip is published. Use it when source and campaign terms permit that publication, or import a supplied recording. [Kick's clip guide](https://help.kick.com/en/articles/7120566-how-to-create-clips-on-kick) |
+| Authorized live recordings | Streamlink has a Kick plugin and can write a local recording. Its Kick plugin requires a browser. Evaluate it on a permitted stream if a supplied recording or native clip becomes the bottleneck. [Streamlink](https://github.com/streamlink/streamlink) · [Plugin documentation](https://streamlink.github.io/plugins.html#kick) |
+| Kick live chat | A local install of the MIT-licensed kick-chat-replay at `af1b035` succeeded, but the public channel lookup returned HTTP 403 on November 18, 2026. Use `live_clipper.py observe` for a pilot. Kick's official chat webhook requires an app and a publicly accessible endpoint. Consider it after manual sampling becomes a repeat bottleneck. [Pinned collector](https://github.com/flackomarketing/kick-chat-replay/tree/af1b0352dea606a86c8da97e82d94fac7c64c237) · [Kick Events API](https://github.com/KickEngineering/KickDevDocs/blob/main/events/introduction.md) |

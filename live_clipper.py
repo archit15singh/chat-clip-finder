@@ -9,6 +9,7 @@ import math
 import os
 from pathlib import Path
 import re
+import select
 import socket
 import ssl
 import statistics
@@ -106,6 +107,57 @@ def replay(path, queue, before=BEFORE_SECONDS):
             if row.get("reset") is True or channel not in detectors:
                 detectors[channel] = SpikeDetector(before)
             emit(detectors[channel].observe(channel, bucket, messages), queue, row.get("stream_id"))
+
+
+def observe_chat(channel, queue, bucket_log, before):
+    """Count visible chat by keypress on a POSIX terminal."""
+    import termios
+    import tty
+
+    terminal = sys.stdin.fileno()
+    settings = termios.tcgetattr(terminal)
+    detector = SpikeDetector(before)
+    bucket = int(time.time()) // BUCKET_SECONDS
+    first_full = bucket + 1
+    count = 0
+    reset = True
+    print("Watch chat beside this terminal. Wait for Ready. Space adds one, "
+          "digits add 1–9. Ctrl-C stops.", file=sys.stderr, flush=True)
+    try:
+        tty.setcbreak(terminal)
+        while True:
+            deadline = (bucket + 1) * BUCKET_SECONDS
+            readable, _, _ = select.select([terminal], [], [], max(0, deadline - time.time()))
+            key = os.read(terminal, 1) if readable else None
+            if key == b"":
+                return
+            current = int(time.time()) // BUCKET_SECONDS
+            if current != bucket:
+                if current == bucket + 1 and bucket >= first_full:
+                    print(json.dumps({"channel": channel, "bucket": bucket,
+                                      "messages": count, "reset": reset}), file=bucket_log, flush=True)
+                    candidate = detector.observe(channel, bucket, count)
+                    emit(candidate, queue)
+                    print(f"{deadline} · {count} messages", file=sys.stderr, flush=True)
+                    if candidate:
+                        print(f"Spike {candidate['id']} · {candidate['ratio']:.1f}× baseline",
+                              file=sys.stderr, flush=True)
+                    reset = False
+                elif current != bucket + 1:
+                    detector = SpikeDetector(before)
+                    first_full = current + 1
+                    reset = True
+                    print("Clock gap. Waiting for the next full bucket.", file=sys.stderr, flush=True)
+                if current == first_full:
+                    print("Ready", file=sys.stderr, flush=True)
+                bucket, count = current, 0
+            if bucket >= first_full:
+                if key == b" ":
+                    count += 1
+                elif key and b"1" <= key <= b"9":
+                    count += int(key)
+    finally:
+        termios.tcsetattr(terminal, termios.TCSADRAIN, settings)
 
 
 def live_streams(channels, token, client_id):
@@ -264,7 +316,10 @@ def main():
     live.add_argument("--buckets-out", type=Path, help="write aggregate counts for later replay")
     fixture = modes.add_parser("replay", help="queue candidates from recorded bucket counts")
     fixture.add_argument("buckets", type=Path)
-    for mode in (live, fixture):
+    manual = modes.add_parser("observe", help="count visible chat from any platform in a POSIX terminal")
+    manual.add_argument("channel")
+    manual.add_argument("--buckets-out", type=Path, required=True)
+    for mode in (live, fixture, manual):
         mode.add_argument("--out", type=Path, required=True, help="new local JSONL queue")
         mode.add_argument("--before", type=int, default=BEFORE_SECONDS, metavar="SECONDS",
                           help="seconds before the cue within the 30-second clip (default 18)")
@@ -286,6 +341,15 @@ def main():
         elif args.mode == "replay":
             with args.out.open("x", encoding="utf-8") as queue:
                 replay(args.buckets, queue, args.before)
+        elif args.mode == "observe":
+            if os.name != "posix" or not sys.stdin.isatty():
+                raise ValueError("Observe needs an interactive POSIX terminal")
+            channel = channel_name(args.channel)
+            if args.buckets_out.resolve() == args.out.resolve():
+                raise ValueError("Cue and bucket outputs must be different files")
+            with (args.out.open("x", encoding="utf-8") as queue,
+                  args.buckets_out.open("x", encoding="utf-8") as bucket_log):
+                observe_chat(channel, queue, bucket_log, args.before)
         else:
             channels = list(dict.fromkeys(map(channel_name, args.channels)))
             if len(channels) > 20:
