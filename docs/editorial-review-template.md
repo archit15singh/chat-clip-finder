@@ -29,6 +29,7 @@ Name the one deliberate change. For a reusable template, try it on replacement m
 - Does the opening make sense at phone size without sound?
 - What improved in the revision? Give a visible or audible example.
 - Sound mode, rationale, and rights evidence. Listen through the exact export with sound on, then check the opening on mute. Record the sound cues, sync, mix, music clearance, and any disclosure. For a trackless export, verify the intentional silence exception.
+- Record the final audible spoken phrase and its timestamp. Listen through the end of the exact export to confirm the last word finishes and the reaction has room to land. Captions help locate the phrase. If playback cuts off speech, extend within cleared source or select another cut, then review the replacement.
 - Why is this worth sharing? Describe the scene in your own words.
 - YouTube account, title, and description
 - Instagram account and caption
