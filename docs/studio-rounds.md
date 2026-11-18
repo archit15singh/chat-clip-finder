@@ -28,4 +28,12 @@ The first round's opening check transferred to a different scene and runtime. Th
 
 Run `python3 studio_queue.py milestones` to list the 24-hour, 72-hour, and seven-day observation times for each verified permalink. Collect the platform's metrics and the actual observation time. Use the corresponding owner analytics surface and leave unavailable values blank. Keep an early technical readback out of the comparison window.
 
+Save each readback as an entry in a local JSON array. Use `platform`, `url`, `observed_at` with its time zone, `metric_source`, and `metrics` with the platform's labels and units. Use `null` for a metric the surface does not show. Then run:
+
+```sh
+python3 studio_observations.py .improvement/studio/analytics-readings.json
+```
+
+The command checks each post against the publishing queue and outputs its actual age in seconds, using the publication time recorded in the receipt. Keep the checked output alongside the original readings. A late reading retains its age even if it was meant for an earlier milestone. Compare ages and metric sources before interpreting differences.
+
 The initial YouTube Studio check at about 19:24 UTC showed one view on each Short. The Instagram Reels grid at about 19:23 UTC showed zero views on both Reels. Those checks were within minutes of publishing, at different ages, and contain no retention data. The cuts also differ in length, creator, and subject. Treat the phone-size result as an editorial observation and the audience effect as an open hypothesis. For a future performance comparison, use cuts closer in length and subject and compare metric definitions within each platform. [Measurement guide](short-form-experiments.md)
