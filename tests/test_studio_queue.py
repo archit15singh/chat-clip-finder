@@ -229,6 +229,30 @@ class StudioQueueTest(unittest.TestCase):
         self.write("campaign.json", brief)
         self.assertEqual(self.queue.begin(claim["token"], preflight)["state"], "submitting")
 
+    def test_twitch_native_delivery_checks_clip_layout_and_rendition(self):
+        manifest = json.loads(self.manifest().read_text())
+        clip = "https://www.twitch.tv/creator/clip/Original"
+        manifest["twitch_native_clip"] = clip
+        staged = self.queue.stage(self.write("native.json", manifest))
+        self.approve(staged)
+        claim = self.queue.claim("browser")
+        self.assertEqual(claim["twitch_native_clip"], clip)
+        base = {
+            "platform": claim["platform"], "account": claim["destination"]["account"],
+            "package_sha256": claim["package_sha256"], "twitch_native_clip": clip + "?range=7d",
+            "layout": "portrait", "portrait_rendition": claim["artifact"],
+        }
+        for change, error in (
+            ({"twitch_native_clip": clip + "Other"}, "approved clip"),
+            ({"layout": "landscape"}, "portrait layout"),
+            ({"portrait_rendition": str(self.media[1][0])}, "rendition differs"),
+        ):
+            proof = self.write("native-preflight.json", {**base, **change})
+            with self.assertRaisesRegex(ValueError, error):
+                self.queue.begin(claim["token"], proof)
+        proof = self.write("native-preflight.json", base)
+        self.assertEqual(self.queue.begin(claim["token"], proof)["state"], "submitting")
+
     def test_review_binds_copy_and_revision(self):
         manifest = self.manifest()
         staged = self.queue.stage(manifest)

@@ -83,3 +83,9 @@ A pre-mutation lease can be released with `release TOKEN --evidence REASON`; an 
 Keep the SQLite file and its sibling `.media` folder together. There is one database for the real publisher. Use `--queue` with a separate path for synthetic rehearsals. Native Twitch Clips can be tracked with a separate source receipt when the player and rights allow it.
 
 Existing staged cuts and receipts retain their original contract. A new stage or revision uses all current checks. See the [verification gates](studio-verification-gates.md) for failures and recovery.
+
+## Deliver through Twitch’s native export
+
+Use this route when the creator enables direct social exports for the exact Twitch clip. Verify the destination buttons are available, and review the official portrait rendition that Twitch supplies for that clip. Keep its original bytes as the manifest artifact and run `review_media.py --twitch-native` to accept Twitch’s HEVC portrait rendition. Record the creator opt-in and the native-only scope in both destination rights notes. Add `twitch_native_clip` to the manifest with the Twitch clip permalink.
+
+At claim, reopen that permalink and confirm the portrait preview and the connected destination account. Fetch or confirm the current official portrait rendition. In preflight use `twitch_native_clip`, `layout: "portrait"`, and `portrait_rendition` instead of `upload_file`. The queue checks the permalink and local rendition hash against the approved package. The operator checks that the active preview uses that same portrait before submitting. The normal lease, campaign evidence, copy, and public playback checks still apply. The receipt hash identifies the reviewed Twitch rendition. Twitch and the destination can transcode it.

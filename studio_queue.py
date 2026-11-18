@@ -92,6 +92,16 @@ def slug(mapping, key):
     return value
 
 
+def twitch_clip_url(value):
+    url = urlsplit(value)
+    if (
+        url.scheme != "https" or url.netloc != "www.twitch.tv"
+        or not re.fullmatch(r"/[a-z0-9_]+/clip/[A-Za-z0-9_-]+/?", url.path)
+    ):
+        raise ValueError("Expected a Twitch channel clip permalink for native delivery")
+    return f"https://www.twitch.tv{url.path.rstrip('/')}"
+
+
 def package_data(path):
     raw = read_json(path)
     source = raw["source"]
@@ -152,6 +162,10 @@ def package_data(path):
         "media_review_sha256": hashlib.sha256(report_bytes).hexdigest(),
         "destinations": destinations,
     }
+    if review.get("twitch_native") and "twitch_native_clip" not in raw:
+        raise ValueError("Bind Twitch-native media review to a Twitch clip permalink")
+    if "twitch_native_clip" in raw:
+        package["twitch_native_clip"] = twitch_clip_url(require_text(raw, "twitch_native_clip"))
     package["media_review_files"] = {name: hashlib.sha256(body).hexdigest() for name, body in evidence.items()}
     if "sound" in raw:
         sound = raw["sound"]
@@ -456,6 +470,7 @@ class Queue:
                     "artifact": row["artifact"], "artifact_sha256": row["artifact_sha256"],
                     "package_sha256": row["fingerprint"], "source": package["source"],
                     "destination": package["destinations"][platform],
+                    **({"twitch_native_clip": package["twitch_native_clip"]} if "twitch_native_clip" in package else {}),
                 }
         return None
 
@@ -483,9 +498,17 @@ class Queue:
             raise ValueError("Upload preflight does not match the selected account and platform")
         if proof.get("package_sha256") != row["fingerprint"]:
             raise ValueError("Upload preflight must identify the approved package")
-        upload = (preflight.parent / require_text(proof, "upload_file")).resolve()
-        if artifact_digest(upload) != row["artifact_sha256"]:
-            raise ValueError("Selected upload file differs from the approved artifact")
+        if "twitch_native_clip" in package:
+            clip = twitch_clip_url(require_text(proof, "twitch_native_clip"))
+            if clip != package["twitch_native_clip"] or proof.get("layout") != "portrait":
+                raise ValueError("Twitch native preflight must match the approved clip and portrait layout")
+            rendition = (preflight.parent / require_text(proof, "portrait_rendition")).resolve()
+            if artifact_digest(rendition) != row["artifact_sha256"]:
+                raise ValueError("Twitch portrait rendition differs from the approved artifact")
+        else:
+            upload = (preflight.parent / require_text(proof, "upload_file")).resolve()
+            if artifact_digest(upload) != row["artifact_sha256"]:
+                raise ValueError("Selected upload file differs from the approved artifact")
         if "campaign_url" in package:
             from studio_campaigns import prepare
             if "campaign_brief" not in proof:

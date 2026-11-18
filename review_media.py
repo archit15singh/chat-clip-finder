@@ -29,7 +29,7 @@ def artifact_digest(path):
     return digest.hexdigest()
 
 
-def probe_export(media):
+def probe_export(media, *, twitch_native=False):
     probe = json.loads(command_output(
         "ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", str(media),
     ))
@@ -41,13 +41,15 @@ def probe_export(media):
     if len(video) != 1 or len(audio) > 1 or len(streams) != len(video) + len(audio):
         raise ValueError("Expected one video stream and at most one audio stream")
     picture = video[0]
+    codecs = {"h264", "hevc"} if twitch_native else {"h264"}
     if (
-        picture["codec_name"] != "h264"
+        picture["codec_name"] not in codecs
         or picture["height"] <= picture["width"]
         or picture.get("sample_aspect_ratio", "1:1") not in {"1:1", "0:1", "N/A"}
         or any(item.get("rotation", 0) % 360 for item in picture.get("side_data_list", []))
     ):
-        raise ValueError("Expected H.264 video encoded directly in portrait orientation")
+        expected = "H.264 or HEVC" if twitch_native else "H.264"
+        raise ValueError(f"Expected {expected} video encoded directly in portrait orientation")
     if audio and audio[0]["codec_name"] != "aac":
         raise ValueError("Expected AAC audio in the MP4 export")
     return probe, bool(audio)
@@ -87,7 +89,7 @@ def save_audio_evidence(media, directory, ffmpeg, statistics):
     return ["audio-statistics.txt", *graphics]
 
 
-def review_export(media, output, timestamps=(), audio_evidence=False):
+def review_export(media, output, timestamps=(), audio_evidence=False, *, twitch_native=False):
     media = media.resolve(strict=True)
     if not media.is_file():
         raise ValueError("Media must be a local file")
@@ -108,7 +110,7 @@ def review_export(media, output, timestamps=(), audio_evidence=False):
             raise ValueError("Export changed while taking the review snapshot")
         directory = workspace / "evidence"
         directory.mkdir()
-        probe, has_audio = probe_export(snapshot)
+        probe, has_audio = probe_export(snapshot, twitch_native=twitch_native)
         duration = video_duration(snapshot)
         marks = list(timestamps) or [duration * (index + 0.5) / 6 for index in range(6)]
         marks = sorted(set(marks))
@@ -145,6 +147,7 @@ def review_export(media, output, timestamps=(), audio_evidence=False):
             raise ValueError("Export changed during review")
         manifest = {
             "schema_version": 1,
+            **({"twitch_native": True} if twitch_native else {}),
             "artifact": str(media),
             "artifact_sha256": digest,
             "video_seconds": duration,
@@ -172,9 +175,11 @@ def main(argv=None):
                         help="export-relative seconds to sample, repeat up to 12 times")
     parser.add_argument("--audio-evidence", action="store_true",
                         help="save audio diagnostics for authorized audio")
+    parser.add_argument("--twitch-native", action="store_true", help="Review an official Twitch portrait rendition")
     arguments = parser.parse_args(argv)
     try:
-        print(review_export(arguments.media, arguments.out, arguments.at, arguments.audio_evidence))
+        print(review_export(arguments.media, arguments.out, arguments.at,
+                            arguments.audio_evidence, twitch_native=arguments.twitch_native))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Review failed: {error}\n")
 
