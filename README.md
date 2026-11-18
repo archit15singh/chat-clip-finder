@@ -74,3 +74,13 @@ For footage you have permission to use, pass a direct media URL or a supported c
     python3 clip_finder.py --video-url 'https://example.com/watch' --at 01:30 --before 18 --after 12 --out clips
 
 Repeat the timestamp or range flag to cut more moments. The output directory contains vertical MP4 drafts and a clips.json manifest with the source and timeline offsets. Add --preview to see the boundaries before rendering.
+
+## Turn a live chat spike into a draft
+
+Use the separate live CLI to watch GTA VI channels and queue 30-second windows. Set TWITCH_CLIENT_ID, TWITCH_LOGIN and a Twitch user TWITCH_ACCESS_TOKEN with the chat:read scope through your environment. Use completed replays or aligned local recordings to render cues. Compare the chosen range against the recording before publishing.
+
+    python3 live_clipper.py watch creator_one creator_two --out .improvement/cues.jsonl --buckets-out .improvement/buckets.jsonl
+    python3 live_clipper.py replay .improvement/buckets.jsonl --out .improvement/replayed.jsonl
+    python3 live_clipper.py render --queue .improvement/cues.jsonl --id creator_one-1795007000 --video-url 'https://example.com/vod.mp4' --recording-start 1795006900 --out .improvement/clip.mp4
+
+The watcher keeps separate baselines for each channel. It writes aggregate counts and the proposed windows without storing the chat messages. Set --recording-start to the Unix timestamp of the first frame of the aligned recording or replay.
