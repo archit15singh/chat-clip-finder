@@ -77,13 +77,17 @@ Repeat the timestamp or range flag to cut more moments. The output directory con
 
 ## Turn a live chat spike into a draft
 
-Use the separate live CLI to watch GTA VI channels and queue 30-second windows. Set TWITCH_CLIENT_ID, TWITCH_LOGIN and a Twitch user TWITCH_ACCESS_TOKEN with the chat:read scope through your environment. Use completed replays or aligned local recordings to render cues. Compare the chosen range against the recording before publishing.
+Use the separate live CLI to watch Twitch channels and queue 30-second windows. Set TWITCH_CLIENT_ID, TWITCH_LOGIN and a Twitch user TWITCH_ACCESS_TOKEN with the chat:read scope through your environment. Use completed replays or aligned local recordings to render cues. Compare the chosen range against the recording before publishing.
 
     python3 live_clipper.py watch creator_one creator_two --out .improvement/cues.jsonl --buckets-out .improvement/buckets.jsonl
     python3 live_clipper.py replay .improvement/buckets.jsonl --out .improvement/replayed.jsonl
     python3 live_clipper.py render --queue .improvement/cues.jsonl --id creator_one-1795007000 --video-url 'https://example.com/vod.mp4' --recording-start 1795006900 --out .improvement/clip.mp4
 
 The watcher keeps separate baselines for each channel. It writes aggregate counts and the proposed windows without storing the chat messages. Set --recording-start to the Unix timestamp of the first frame of the aligned recording or replay.
+
+Grand Theft Auto VI is the default category. Repeat --game to watch channels across multiple categories. The names must match Twitch category names, ignoring case. The watcher records each stream's category in the buckets and cues and starts a fresh baseline when it detects a change.
+
+    python3 live_clipper.py watch creator_one creator_two --game 'Grand Theft Auto VI' --game 'Elden Ring' --out .improvement/multi-cues.jsonl --buckets-out .improvement/multi-buckets.jsonl
 
 When watching Kick, YouTube, or a stream without a chat integration, use a terminal beside the player.
 

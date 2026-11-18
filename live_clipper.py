@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Find GTA VI chat spikes across live Twitch channels and queue local clip drafts."""
+"""Find chat spikes across live Twitch channels and queue local clip drafts."""
 
 import argparse
 from collections import Counter
@@ -73,11 +73,13 @@ class SpikeDetector:
         }
 
 
-def emit(candidate, queue, stream_id=None):
+def emit(candidate, queue, stream_id=None, game=None):
     if candidate is None:
         return
     if stream_id is not None:
         candidate["stream_id"] = stream_id
+    if game is not None:
+        candidate["game"] = game
     print(json.dumps(candidate), file=queue, flush=True)
 
 
@@ -106,7 +108,8 @@ def replay(path, queue, before=BEFORE_SECONDS):
             last_buckets[channel] = bucket
             if row.get("reset") is True or channel not in detectors:
                 detectors[channel] = SpikeDetector(before)
-            emit(detectors[channel].observe(channel, bucket, messages), queue, row.get("stream_id"))
+            emit(detectors[channel].observe(channel, bucket, messages), queue,
+                 row.get("stream_id"), row.get("game"))
 
 
 def observe_chat(channel, queue, bucket_log, before):
@@ -160,7 +163,7 @@ def observe_chat(channel, queue, bucket_log, before):
         termios.tcsetattr(terminal, termios.TCSADRAIN, settings)
 
 
-def live_streams(channels, token, client_id):
+def live_streams(channels, token, client_id, games):
     query = urlencode([("user_login", channel) for channel in channels])
     request = Request("https://api.twitch.tv/helix/streams?" + query, headers={
         "Authorization": f"Bearer {token}",
@@ -169,9 +172,9 @@ def live_streams(channels, token, client_id):
     try:
         with urlopen(request, timeout=8) as response:
             return {
-                stream["user_login"]: stream["id"]
+                stream["user_login"]: (stream["id"], stream["game_name"])
                 for stream in json.load(response)["data"]
-                if stream["game_name"] == GAME
+                if stream["game_name"].casefold() in games
             }
     except HTTPError as error:
         if error.code == 429 or error.code >= 500:
@@ -181,7 +184,7 @@ def live_streams(channels, token, client_id):
         raise ChatDisconnected("Twitch stream lookup was interrupted") from error
 
 
-def watch_connection(channels, token, client_id, login, queue, bucket_log, before):
+def watch_connection(channels, token, client_id, login, queue, bucket_log, before, games):
     if any(character.isspace() for character in token):
         raise ValueError("Invalid Twitch access token format")
     context = ssl.create_default_context()
@@ -203,7 +206,7 @@ def watch_connection(channels, token, client_id, login, queue, bucket_log, befor
                 if not authenticated and now >= auth_deadline:
                     raise ValueError("Twitch IRC did not authenticate the chat connection")
                 if authenticated and now >= next_check:
-                    active = live_streams(channels, token, client_id)
+                    active = live_streams(channels, token, client_id, games)
                     for channel in streams.keys() | active.keys():
                         if streams.get(channel) != active.get(channel):
                             detectors.pop(channel, None)
@@ -212,7 +215,8 @@ def watch_connection(channels, token, client_id, login, queue, bucket_log, befor
                             if channel in active:
                                 first_full_bucket[channel] = int(time.time()) // BUCKET_SECONDS + 1
                     if next_check == 0 or active != streams:
-                        print("Live GTA VI channels: " + (", ".join(sorted(active)) or "none"),
+                        labels = [f"{channel} ({active[channel][1]})" for channel in sorted(active)]
+                        print("Matching live channels: " + (", ".join(labels) or "none"),
                               file=sys.stderr, flush=True)
                     streams = active
                     next_check = time.monotonic() + 30
@@ -224,7 +228,7 @@ def watch_connection(channels, token, client_id, login, queue, bucket_log, befor
                     raise ChatDisconnected("Twitch IRC disconnected")
                 bucket = int(time.time()) // BUCKET_SECONDS
                 if current_bucket + 1 == bucket:
-                    for channel, stream_id in streams.items():
+                    for channel, (stream_id, game) in streams.items():
                         if current_bucket < first_full_bucket[channel]:
                             continue
                         reset = channel not in detectors
@@ -235,9 +239,10 @@ def watch_connection(channels, token, client_id, login, queue, bucket_log, befor
                             print(json.dumps({
                                 "channel": channel, "bucket": current_bucket,
                                 "messages": messages, "stream_id": stream_id, "reset": reset,
+                                "game": game,
                             }), file=bucket_log, flush=True)
                         emit(detectors[channel].observe(channel, current_bucket, messages),
-                             queue, stream_id)
+                             queue, stream_id, game)
                 if bucket != current_bucket:
                     if bucket != current_bucket + 1:
                         detectors.clear()
@@ -264,7 +269,7 @@ def watch_connection(channels, token, client_id, login, queue, bucket_log, befor
                             counts[match[1]] += 1
 
 
-def watch(channels, queue, bucket_log, before):
+def watch(channels, queue, bucket_log, before, games):
     try:
         token = os.environ["TWITCH_ACCESS_TOKEN"].removeprefix("oauth:")
         client_id = os.environ["TWITCH_CLIENT_ID"]
@@ -273,7 +278,7 @@ def watch(channels, queue, bucket_log, before):
         raise ValueError(f"Set {error.args[0]} before watching Twitch") from None
     while True:
         try:
-            watch_connection(channels, token, client_id, login, queue, bucket_log, before)
+            watch_connection(channels, token, client_id, login, queue, bucket_log, before, games)
         except (ChatDisconnected, ConnectionError, TimeoutError, socket.gaierror) as error:
             print(f"Twitch connection interrupted ({type(error).__name__}). Reconnecting.",
                   file=sys.stderr, flush=True)
@@ -313,6 +318,8 @@ def main():
     modes = parser.add_subparsers(dest="mode", required=True)
     live = modes.add_parser("watch", help="queue candidates from live Twitch chat")
     live.add_argument("channels", nargs="+")
+    live.add_argument("--game", action="append", metavar="NAME",
+                      help=f"Twitch category name, repeatable (default: {GAME})")
     live.add_argument("--buckets-out", type=Path, help="write aggregate counts for later replay")
     fixture = modes.add_parser("replay", help="queue candidates from recorded bucket counts")
     fixture.add_argument("buckets", type=Path)
@@ -352,6 +359,9 @@ def main():
                 observe_chat(channel, queue, bucket_log, args.before)
         else:
             channels = list(dict.fromkeys(map(channel_name, args.channels)))
+            games = {name.strip().casefold() for name in args.game or [GAME]}
+            if "" in games:
+                raise ValueError("Game names must not be empty")
             if len(channels) > 20:
                 raise ValueError("Watch supports up to 20 channels per run")
             if not all(os.environ.get(key) for key in
@@ -364,7 +374,7 @@ def main():
                 bucket_log = None
                 if args.buckets_out is not None:
                     bucket_log = files.enter_context(args.buckets_out.open("x", encoding="utf-8"))
-                watch(channels, queue, bucket_log, args.before)
+                watch(channels, queue, bucket_log, args.before, games)
     except KeyboardInterrupt:
         return 130
     except (OSError, ValueError) as error:
