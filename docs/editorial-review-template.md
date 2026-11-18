@@ -28,7 +28,7 @@ Name the one deliberate change. For a reusable template, try it on replacement m
 - Selected export SHA-256, report path, and inspected timestamps
 - Does the opening make sense at phone size without sound?
 - What improved in the revision? Give a visible or audible example.
-- Where did you listen? Note any clipped words, awkward joins, masking, or silence. Record silence, an unavailable listening check, or any disclosure when relevant.
+- Sound mode, rationale, and rights evidence. Listen through the exact export with sound on, then check the opening on mute. Record the sound cues, sync, mix, music clearance, and any disclosure. For a trackless export, verify the intentional silence exception.
 - Why is this worth sharing? Describe the scene in your own words.
 - YouTube account, title, and description
 - Instagram account and caption

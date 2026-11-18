@@ -24,6 +24,11 @@ Research, scouting and editing can run in parallel. A single publisher holds the
     "start": 320,
     "end": 346
   },
+  "sound": {
+    "mode": "source",
+    "reason": "Keep the game cue and creator reaction in sync",
+    "rights_evidence": "Scope includes the source speech and game audio, reviewed for third-party music"
+  },
   "editorial_choice": "Open on the produce display before showing the truck",
   "experiment": "Check whether viewers stay for the storage reveal",
   "destinations": {
@@ -44,7 +49,9 @@ Research, scouting and editing can run in parallel. A single publisher holds the
 }
 ```
 
-Use a stable scene ID across alternate edits and copy revisions. Use a new cut ID and set `supersedes` to the prior cut ID when replacing a revision. Previously verified platforms keep their receipts on the earlier cut and are omitted from the replacement's work. Exact duplicate staging is idempotent while the source inputs are available. Use `inspect CUT` to recover the staged package if the staging response was lost and the original inputs have moved.
+Use both destinations for a normal showcase. When a campaign permits only one, list only that destination so the queue creates exactly one delivery. Use a stable scene ID across alternate edits and copy revisions. Use a new cut ID and set `supersedes` to the prior cut ID when replacing a revision. Previously verified platforms keep their receipts on the earlier cut and are omitted from the replacement's work. Exact duplicate staging is idempotent while the source inputs are available. Use `inspect CUT` to recover the staged package if the staging response was lost and the original inputs have moved.
+
+New cuts declare `sound.mode` as `source`, `original`, or `silent`. Source or original requires rights evidence and detectable signal in the exact export. Silent means a trackless export chosen for a specific editorial or rights reason. Include the reason in every case. The peak check catches a missing or effectively blank track. Listen to check words, mix, timing, and music clearance before approval.
 
 ## Independently approve the exact package
 

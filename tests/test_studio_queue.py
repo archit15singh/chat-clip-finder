@@ -55,6 +55,7 @@ class StudioQueueTest(unittest.TestCase):
             "source": {"id": "vod", "creator": "Creator", "reference": "local test",
                        "credit": "Creator on Twitch", "clock": "vod-offset", "start": 18, "end": 19},
             "editorial_choice": "Open on the red frame", "experiment": "Test the opening",
+            "sound": {"mode": "silent", "reason": "Generated fixture contains picture only"},
             "destinations": {
                 "youtube": {"account": "channel", "title": "Title", "caption": caption,
                             "reuse_cleared": True, "rights_evidence": "Original synthetic fixture"},
@@ -79,6 +80,47 @@ class StudioQueueTest(unittest.TestCase):
         if "title" in copy:
             data["title"] = copy["title"]
         return self.write("receipt.json", {**data, **overrides})
+
+    def test_one_platform_campaign_does_not_create_another_delivery(self):
+        manifest = self.manifest()
+        package = json.loads(manifest.read_text())
+        instagram = package["destinations"].pop("instagram")
+        package["destinations"]["other"] = instagram
+        manifest.write_text(json.dumps(package))
+        with self.assertRaisesRegex(ValueError, "supported destination"):
+            self.queue.stage(manifest)
+        package["destinations"].pop("other")
+        manifest.write_text(json.dumps(package))
+        self.approve(self.queue.stage(manifest))
+        self.assertEqual([row["platform"] for row in self.queue.status()], ["youtube"])
+        self.assertEqual(self.queue.claim("publisher")["platform"], "youtube")
+
+    def test_audio_is_required_unless_the_export_is_intentionally_silent(self):
+        manifest = self.manifest()
+        package = json.loads(manifest.read_text())
+        package.pop("sound")
+        manifest.write_text(json.dumps(package))
+        with self.assertRaisesRegex(ValueError, "Declare sound mode"):
+            self.queue.stage(manifest)
+        package["sound"] = {"mode": "source", "reason": "Preserve reaction", "rights_evidence": "Cleared"}
+        manifest.write_text(json.dumps(package))
+        with self.assertRaisesRegex(ValueError, "non-silent audio"):
+            self.queue.stage(manifest)
+        for track, peak_required in (("anullsrc", False), ("sine=frequency=440", True)):
+            audio_file = self.root / ("tone.mp4" if peak_required else "blank.mp4")
+            subprocess.run([
+                "ffmpeg", "-v", "error", "-i", str(self.media[0][0]), "-f", "lavfi", "-i", track,
+                "-t", "1", "-c:v", "copy", "-c:a", "aac", str(audio_file),
+            ], check=True)
+            evidence = review_export(audio_file, audio_file.with_suffix(""), (0,))
+            package.update(artifact=str(audio_file), media_review=str(evidence))
+            manifest.write_text(json.dumps(package))
+            if peak_required:
+                self.assertEqual(self.queue.stage(manifest)["cut"], "first")
+            else:
+                with self.assertRaisesRegex(ValueError, "non-silent audio"):
+                    self.queue.stage(manifest)
+        self.queue.stage(self.manifest(cut="silent", scene="silent"))
 
     def test_review_binds_copy_and_revision(self):
         manifest = self.manifest()

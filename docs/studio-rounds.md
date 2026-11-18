@@ -24,6 +24,10 @@ The first round's opening check transferred to a different scene and runtime. Th
 - [Instagram Reel](https://www.instagram.com/reel/Df5Pw7rBuZI/) was reopened on the public After the Spike profile. The phone crop, approved caption, and Lacy credit were visible. The post was shared at about 19:22 UTC on November 18.
 - The signed-in Lacy VOD player also displayed “Unable to play media.” Both public destinations have separate verified receipts. This round was showcase work.
 
+## Sound follow-up
+
+Both source recordings contain AAC audio. The two shot-composition renders explicitly stripped it before concatenation. The previous queue permitted that picture-only choice. Restored source audio to local copies using the original shot offsets and verified the encoded video stayed identical. The published cuts remain the silent versions. The new queue records sound intent and checks whether the submitted file has signal.
+
 ## Read back performance at comparable ages
 
 Run `python3 studio_queue.py milestones` to list the 24-hour, 72-hour, and seven-day observation times for each verified permalink. Collect the platform's metrics and the actual observation time. Use the corresponding owner analytics surface and leave unavailable values blank. Keep an early technical readback out of the comparison window.

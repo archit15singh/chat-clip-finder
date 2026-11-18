@@ -74,3 +74,16 @@ python3 review_media.py "$clip_export" --out "$clip_job/delivery-review" --at 0 
 ```
 
 Use the final portrait H.264 MP4 with AAC or no audio. Specify export-relative seconds around the opening, edit, and payoff, or omit them for evenly spaced samples. Each image is the first frame available from the requested seek. The runner decodes the export, writes a contact sheet and records its SHA-256 in `review.json`. Add `--audio-evidence` for authorized audio to produce a waveform, spectrogram and gain and silence measurements. Listen to the export for words, tone and sync. Attach the report to the [editorial review](editorial-review-template.md) alongside the story and copy decisions.
+
+## Keep sound through the edit
+
+Carry cleared creator reactions and game cues into the first cut. If an edit changes shot order, cut sound against the same source-file offsets and listen across the joins. Use clean original audio or commissioned sound with documented rights where the source mix cannot be cleared. Keep the scene readable on mute, and record why when an intentionally silent cut serves the scene or its rights constraints.
+
+For a picture-only export with known cut points, restore sound from the original local recording without changing the encoded picture:
+
+```sh
+python3 restore_source_audio.py picture.mp4 source.mp4 --span 4:10 --span 17:22 --out with-sound.mp4
+python3 review_media.py with-sound.mp4 --audio-evidence --out with-sound-review
+```
+
+Pass spans in picture order and in local source seconds. Their total must match the picture duration. Play through the exact export to check intelligibility, synchronization and transitions. Use the peak, silence, waveform and spectrum as evidence alongside playback. Review rights for every included layer, especially background music. Existing public posts keep their original receipts. A local reconstruction is a new file for review.
