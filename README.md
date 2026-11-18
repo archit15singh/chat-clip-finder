@@ -84,3 +84,9 @@ Use the separate live CLI to watch GTA VI channels and queue 30-second windows. 
     python3 live_clipper.py render --queue .improvement/cues.jsonl --id creator_one-1795007000 --video-url 'https://example.com/vod.mp4' --recording-start 1795006900 --out .improvement/clip.mp4
 
 The watcher keeps separate baselines for each channel. It writes aggregate counts and the proposed windows without storing the chat messages. Set --recording-start to the Unix timestamp of the first frame of the aligned recording or replay.
+
+When watching Kick, YouTube, or a stream without a chat integration, use a terminal beside the player.
+
+    python3 live_clipper.py observe creator_one --out .improvement/manual-cues.jsonl --buckets-out .improvement/manual-buckets.jsonl
+
+Keep terminal focus and wait for Ready. Press Space per new chat message or use digits 1–9 to add a group you've counted. After three ten-second baseline windows, qualifying surges print a cue ID and write it to the queue. Ctrl-C stops and discards the unfinished window. Start a new session if chat loses visibility or the stream changes. The bucket file works with replay. Use an aligned recording and allow for player and chat delay when reviewing the cue.
