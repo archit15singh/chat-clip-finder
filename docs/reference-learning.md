@@ -25,3 +25,5 @@ pwcpp -m "$WHISPER_MODEL" -osrt --language en voice.wav
 ```
 
 For an English clip, use the local English model. For other languages, use an appropriate multilingual model and capture the settings. Probe or full-decode success only confirms a valid media file. The learner still needs to inspect the actual generated frames and speech output before making an editorial recommendation.
+
+For an example of turning a private review into a shared edit brief, see the [next saved-reference experiment](editorial-patterns.md#next-test-from-saved-references).
