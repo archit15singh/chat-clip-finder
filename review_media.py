@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import re
 from shutil import copy2
 import subprocess
 from tempfile import TemporaryDirectory
@@ -52,7 +53,10 @@ def probe_export(media):
     return probe, bool(audio)
 
 
-def save_audio_evidence(media, directory, ffmpeg):
+MIN_SIGNAL_PEAK_DBFS = -60.0
+
+
+def measure_audio(media, ffmpeg):
     result = subprocess.run(
         (*ffmpeg, "-i", str(media), "-vn", "-af", "silencedetect=noise=-40dB:d=0.25,volumedetect",
          "-f", "null", "-"),
@@ -60,11 +64,18 @@ def save_audio_evidence(media, directory, ffmpeg):
     )
     if result.returncode:
         raise ValueError(f"Audio measurement failed: {result.stderr.strip()}")
-    statistics = "audio-statistics.txt"
-    (directory / statistics).write_text("\n".join(
+    statistics = "\n".join(
         line for line in result.stderr.splitlines()
         if "silencedetect" in line or "volumedetect" in line
-    ) + "\n")
+    ) + "\n"
+    peak = re.search(r"max_volume: (-?\d+(?:\.\d+)?) dB", statistics)
+    if peak is None:
+        raise ValueError("Could not measure decoded audio peak")
+    return float(peak[1]), statistics
+
+
+def save_audio_evidence(media, directory, ffmpeg, statistics):
+    (directory / "audio-statistics.txt").write_text(statistics)
     graphics = {
         "waveform.png": "showwavespic=s=900x180:split_channels=1",
         "spectrogram.png": "showspectrumpic=s=900x360:scale=log:fscale=log",
@@ -72,7 +83,7 @@ def save_audio_evidence(media, directory, ffmpeg):
     for name, filters in graphics.items():
         command_output(*ffmpeg, "-loglevel", "error", "-i", str(media),
                        "-filter_complex", filters, "-frames:v", "1", str(directory / name))
-    return [statistics, *graphics]
+    return ["audio-statistics.txt", *graphics]
 
 
 def review_export(media, output, timestamps=(), audio_evidence=False):
@@ -124,7 +135,8 @@ def review_export(media, output, timestamps=(), audio_evidence=False):
                        "-vf", f"tile={columns}x{rows}:padding=6:margin=6", "-frames:v", "1",
                        str(directory / "contact-sheet.png"))
 
-        measurements = save_audio_evidence(snapshot, directory, ffmpeg) if has_audio and audio_evidence else []
+        peak, statistics = measure_audio(snapshot, ffmpeg) if has_audio else (None, "")
+        measurements = save_audio_evidence(snapshot, directory, ffmpeg, statistics) if has_audio and audio_evidence else []
         if artifact_digest(media) != digest:
             raise ValueError("Export changed during review")
         manifest = {
@@ -134,6 +146,7 @@ def review_export(media, output, timestamps=(), audio_evidence=False):
             "video_seconds": duration,
             "full_decode_passed": True,
             "audio_present": has_audio,
+            "audio_peak_dbfs": peak,
             "audio_evidence": measurements,
             "frames": frames,
             "contact_sheet": "contact-sheet.png",

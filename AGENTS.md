@@ -11,6 +11,13 @@ Run the repository checks with `python3 -m unittest discover -s tests -v`. Keep 
 - Publish independently reviewed showcase edits to After the Spike on Shorts and Reels. Use one publisher so uploads can be checked and recovered without duplicates. Strong showcase cuts are the immediate milestone. The next commercial milestone is joining Clix's Content Rewards campaign. Check that campaign's separate terms, eligibility, and submission window when pursuing it.
 - Read the [production plan](docs/production-workflow-plan.md) for the roles and checks in each stage. Use the [publishing queue](docs/publishing-queue.md) when handing an approved cut to the browser publisher. When a user decision changes how the next round should run, save the reason and the trigger here or in the linked workflow before handing off.
 
+### Expert roles
+
+- Run `youtube_expert` and `instagram_expert` in parallel for route-specific monetization, reference analysis, hooks, duration, and post analytics. Give the editor one testable change from their advice. Reuse publishing receipts and actual post age when asking for follow-up. See [platform experts](docs/platform-experts.md).
+- Run `campaign_expert` for a paid round. It checks the marketplace and sponsor terms, then hands the scout an eligible creator and source window. Attach those rules to the edit and publishing handoff. Send verified public receipts back for submission and track approval and payment separately. See [paid campaigns](docs/paid-campaign-workflow.md).
+- Run `distributor` after a verified release to identify where the scene fits and plan a useful community-native placement. Read the destination's rules and keep its permission, message, link, and measurement evidence with the placement. See [organic distribution](docs/studio-distributor.md).
+- Default to cleared sound and listen to the exact export during independent review. The queue checks for audio signal and accepts a trackless export only with a stated editorial or rights reason. See the [audio and editing guide](docs/editing-toolkit.md#keep-sound-through-the-edit).
+
 ## Browser use
 
 Use the `brave-tabs` skill for tab management and Computer Use for page interaction. Reuse one task tab for a batch of clips and its verification. Run `brave-tabs memory` before and during media-heavy work. Close disposable task tabs by ID. If memory pressure rises, use OneTab to park only selected, finished task tabs with no unsaved state. Preserve the user's tabs and private sign-ins. If Brave is unresponsive, stop browser work until it recovers.

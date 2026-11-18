@@ -16,7 +16,7 @@ import time
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from review_media import artifact_digest
+from review_media import MIN_SIGNAL_PEAK_DBFS, artifact_digest
 
 
 PLATFORMS = ("youtube", "instagram")
@@ -153,7 +153,28 @@ def package_data(path):
         "destinations": destinations,
     }
     package["media_review_files"] = {name: hashlib.sha256(body).hexdigest() for name, body in evidence.items()}
+    if "sound" in raw:
+        sound = raw["sound"]
+        package["sound"] = {key: require_text(sound, key) for key in ("mode", "reason")}
+        if package["sound"]["mode"] != "silent":
+            package["sound"]["rights_evidence"] = require_text(sound, "rights_evidence")
     return package, artifact, evidence
+
+
+def check_sound(package, report):
+    sound = package.get("sound")
+    if not sound or sound["mode"] not in {"source", "original", "silent"}:
+        raise ValueError("Declare sound mode as source, original, or intentionally silent")
+    if sound["mode"] == "silent":
+        if package["audio_present"]:
+            raise ValueError("An intentionally silent export must omit the audio track")
+        return
+    peak = report.get("audio_peak_dbfs")
+    if not package["audio_present"] or type(peak) not in (float, int) or not (
+        math.isfinite(peak) and MIN_SIGNAL_PEAK_DBFS < peak <= 0
+    ):
+        raise ValueError("Regenerate the review report and verify non-silent audio in the final export")
+
 
 
 def permalink(platform, value):
@@ -230,6 +251,7 @@ class Queue:
                 if previous["fingerprint"] != fingerprint:
                     raise ValueError("Cut ID already names a different package. Use a new revision ID.")
                 return {"cut": cut, "package_sha256": fingerprint}
+            check_sound(package, json.loads(evidence["review.json"]))
             if self.db.execute(
                 "SELECT 1 FROM cuts WHERE artifact_sha256 = ? AND scene != ?", (digest, scene),
             ).fetchone():
