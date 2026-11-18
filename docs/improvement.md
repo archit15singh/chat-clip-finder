@@ -93,6 +93,20 @@ For a faster first pass, try `--before 10 --after 20` on the VOD clipper. In the
 
 When visual review shows that chat reacts during the setup, try moving two seconds of the preview from the lead-in to the ending with `--before 8 --after 22`. On the same pinned suite this recovered one complete Buddha scene, retained earlier hits, and took 318 seconds to review. The GTA VI basketball trial used this split around a missed shot and kept the second shot and reaction. Check the opening before using the shorter lead-in on another scene.
 
+Before a new edit, review three actual posts from at least two clipping accounts. Note what happens in the opening, when the payoff lands, how the audio contributes, and what the caption adds. Record the links and choose a technique the new scene can use. Compare the final export against the first draft or an earlier clip and name a change you can point to in the video. Use cleared source audio when it carries the moment, and add narration only when it supplies context viewers need. Watch at phone size and on mute. Use retention and shares at comparable post ages when available to decide what to test next.
+
+Write down why a GTA VI player would send this scene to a friend. Let that answer guide framing, timing, sound, and the caption. A surprising game mechanic can open on the object, while a reaction-led scene may need a few frames of anticipation before cutting to the facecam. Drop visual flourishes that make the action harder to read. Review the cut once as a viewer who has never seen the source stream.
+
+### Write and verify the public description
+
+After reviewing the final cut, write the description with the title and opening frame in view. Use one short first line that adds a concrete detail a viewer can recognize in the clip. Name the specific vehicle, mechanic, place, or obstacle when it matters. Leave the payoff in the video when it is the reason to watch. Cut any sentence that could describe another clip or repeats the title without adding information.
+
+For example, “Lacy finds a basketball hoop bolted to a house in GTA VI. He stops to see if it works.” sets up the attempt without giving away the second shot. A line about chat activity, editing, or the upload process belongs in the run log. Keep any required disclosure visible.
+
+Put creator credit below the viewer-facing line. On YouTube, link to the timestamped original VOD when available. On Instagram, use readable text credit and only the hashtags that identify the creator, game, or campaign. Keep source IDs, raw URLs, and timestamps in the run log when they would clutter the Instagram caption. Follow any verified campaign-specific requirements.
+
+Before posting, read the first line in the platform preview beside the title or opening frame. After posting or editing, reopen the saved Short and Reel and verify their descriptions and creator credit. Log the final copy and each platform’s readback. If an account is unavailable, keep its edit pending in the run log.
+
 ## Reuse existing tools
 
 Search before building an integration. Test a candidate against the actual channel or media format and record its license, pinned revision, setup time, and observed failure or success. Keep the adapter small so another tool can replace it.
