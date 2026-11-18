@@ -80,6 +80,8 @@ def read_cut(database, cut_id):
 def prepare(brief, cut_id, cut, now, *, phase, platform=None, readback=None):
     commissioned, closes, minutes = verified_brief(brief, now, live=phase != "readback")
     package, reviewer, fingerprint, replaced_by, receipts = cut
+    if "edit" in package and package.get("campaign_url") != brief.get("campaign_url"):
+        raise ValueError("Campaign must match the campaign URL sealed into the cut")
     if not reviewer or fingerprint != require_text(brief, "package_sha256"):
         raise ValueError("Campaign handoff requires the independently approved exact package")
     if phase == "preflight" and replaced_by:
@@ -108,8 +110,10 @@ def prepare(brief, cut_id, cut, now, *, phase, platform=None, readback=None):
     result = {"provider": brief["provider"], "campaign_url": brief["campaign_url"], "cut": cut_id,
               "package_sha256": fingerprint}
     if phase == "preflight":
-        if receipts:
+        if (platform is None and receipts) or platform in receipts:
             raise ValueError("Upload preflight must happen before publication")
+        if platform is not None and platform not in accounts:
+            raise ValueError("Upload preflight requires an approved campaign destination")
         return {**result, "status": "ready-for-uploader", "submission_platforms": brief["submission_platforms"]}
 
     if platform not in brief["submission_platforms"] or platform not in receipts:

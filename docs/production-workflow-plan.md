@@ -28,6 +28,8 @@ flowchart LR
 
 ## Stage contracts and self-verification
 
+Use the [five verification gates](studio-verification-gates.md) to check new edits, uploads and downstream readbacks.
+
 | Stage | Working output | Self-verification and failure path |
 | --- | --- | --- |
 | **1. Research and maintain the idea bank** | A Markdown entry names a specific creator post, the part worth studying, observable evidence, the edit technique, and an original way to test it. Use the [timing experiment guide](short-form-experiments.md) to distinguish edit rhythm, time to publish, and time of day. | Reopen the original source and confirm the creator, URL, and observed frames. Record audio, exact timing, or performance as unknown when they cannot be seen or heard. A second agent checks at least three actual posts across two accounts before a new technique goes into the playbook. A promising idea stays a hypothesis until it works on another scene. |

@@ -70,6 +70,15 @@ def check_placement(plan, readback, now):
         raise ValueError("Placement permalink must be on the planned venue's host")
     if urlsplit(placement).path.rstrip("/") == urlsplit(plan["venue_url"]).path.rstrip("/"):
         raise ValueError("Use the placement's own permalink, not the venue landing page")
+    venue_path = urlsplit(plan["venue_url"]).path.rstrip("/")
+    placement_path = urlsplit(placement).path.rstrip("/")
+    host = hostname(placement)
+    if host in {"reddit.com", "discord.com"}:
+        if not venue_path or not placement_path.casefold().startswith(venue_path.casefold() + "/"):
+            raise ValueError("Placement is outside the planned community or channel")
+    elif venue_path and not placement_path.startswith(venue_path + "/"):
+        if readback.get("observed_venue_url", "").rstrip("/") != plan["venue_url"].rstrip("/"):
+            raise ValueError("Read back the exact venue when the placement uses a different URL path")
     _, post_url = permalink(plan["platform"], require_text(readback, "linked_post_url"))
     if post_url != plan["post_url"]:
         raise ValueError("Placement links to a different release")

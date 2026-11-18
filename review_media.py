@@ -58,7 +58,7 @@ MIN_SIGNAL_PEAK_DBFS = -60.0
 
 def measure_audio(media, ffmpeg):
     result = subprocess.run(
-        (*ffmpeg, "-i", str(media), "-vn", "-af", "silencedetect=noise=-40dB:d=0.25,volumedetect",
+        (*ffmpeg, "-i", str(media), "-vn", "-af", f"silencedetect=noise={MIN_SIGNAL_PEAK_DBFS}dB:d=0.05,volumedetect",
          "-f", "null", "-"),
         capture_output=True, text=True,
     )
@@ -71,7 +71,8 @@ def measure_audio(media, ffmpeg):
     peak = re.search(r"max_volume: (-?\d+(?:\.\d+)?) dB", statistics)
     if peak is None:
         raise ValueError("Could not measure decoded audio peak")
-    return float(peak[1]), statistics
+    silent_seconds = sum(map(float, re.findall(r"silence_duration: ([0-9.]+)", statistics)))
+    return float(peak[1]), silent_seconds, statistics
 
 
 def save_audio_evidence(media, directory, ffmpeg, statistics):
@@ -135,7 +136,10 @@ def review_export(media, output, timestamps=(), audio_evidence=False):
                        "-vf", f"tile={columns}x{rows}:padding=6:margin=6", "-frames:v", "1",
                        str(directory / "contact-sheet.png"))
 
-        peak, statistics = measure_audio(snapshot, ffmpeg) if has_audio else (None, "")
+        peak, silent_seconds, statistics = measure_audio(snapshot, ffmpeg) if has_audio else (None, 0, "")
+        audio_duration = next(
+            (float(track["duration"]) for track in probe["streams"] if track["codec_type"] == "audio"), 0,
+        )
         measurements = save_audio_evidence(snapshot, directory, ffmpeg, statistics) if has_audio and audio_evidence else []
         if artifact_digest(media) != digest:
             raise ValueError("Export changed during review")
@@ -147,6 +151,7 @@ def review_export(media, output, timestamps=(), audio_evidence=False):
             "full_decode_passed": True,
             "audio_present": has_audio,
             "audio_peak_dbfs": peak,
+            "audio_signal_seconds": max(0, audio_duration - silent_seconds),
             "audio_evidence": measurements,
             "frames": frames,
             "contact_sheet": "contact-sheet.png",

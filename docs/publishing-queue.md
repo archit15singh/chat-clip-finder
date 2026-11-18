@@ -24,6 +24,12 @@ Research, scouting and editing can run in parallel. A single publisher holds the
     "start": 320,
     "end": 346
   },
+  "edit": {
+    "duration_seconds": 26,
+    "hook_seconds": 0,
+    "payoff_seconds": 24.5,
+    "source_spans": [[320, 346]]
+  },
   "sound": {
     "mode": "source",
     "reason": "Keep the game cue and creator reaction in sync",
@@ -51,7 +57,9 @@ Research, scouting and editing can run in parallel. A single publisher holds the
 
 Use both destinations for a normal showcase. When a campaign permits only one, list only that destination so the queue creates exactly one delivery. Use a stable scene ID across alternate edits and copy revisions. Use a new cut ID and set `supersedes` to the prior cut ID when replacing a revision. Previously verified platforms keep their receipts on the earlier cut and are omitted from the replacement's work. Exact duplicate staging is idempotent while the source inputs are available. Use `inspect CUT` to recover the staged package if the staging response was lost and the original inputs have moved.
 
-New cuts declare `sound.mode` as `source`, `original`, or `silent`. Source or original requires rights evidence and detectable signal in the exact export. Silent means a trackless export chosen for a specific editorial or rights reason. Include the reason in every case. The peak check catches a missing or effectively blank track. Listen to check words, mix, timing, and music clearance before approval.
+New cuts declare the expected edit length, hook and payoff timestamps in export seconds, and the ordered used spans in the declared source clock. Sample the two exact beat times with `review_media.py --at`. The gate checks that the rendered runtime matches the planned runtime within 50 ms. Source spans must lie within the declared range. Reordering, repeats, and retiming are allowed. For a paid cut, also put the exact `campaign_url` from the commissioned brief into the manifest before staging it.
+
+New cuts declare `sound.mode` as `source`, `original`, or `silent`. Source or original requires rights evidence and detectable signal in the exact export. Silent means a trackless export chosen for a specific editorial or rights reason. Include the reason in every case. The audio gate checks the peak, track coverage within 250 ms of the picture at each end, and at least 0.5 seconds of measured signal (half the picture duration for clips shorter than one second). Regenerate older audio reports with the current reviewer before staging a new cut. Listen to check words, mix, timing, and music clearance before approval.
 
 ## Independently approve the exact package
 
@@ -61,15 +69,17 @@ python3 studio_queue.py inspect market-01
 python3 studio_queue.py review market-01 /absolute/path/to/approval.json
 ```
 
-The reviewer opens the spooled export and the review report paths from `inspect`, checks the story, original permission, captions, accounts, opening, payoff, and sound, then writes an approval containing `reviewer`, `evidence`, `verdict: "approve"`, and the staged `package_sha256`. The reviewer identity must differ from the editor's. Revise and stage a new cut ID if a check fails. The queue binds the approval to the selected file and both platform packages.
+The reviewer opens the spooled export and the review report paths from `inspect`, checks the story, original permission, captions, accounts, opening, payoff, and sound, then writes an approval containing `reviewer`, `evidence`, `verdict: "approve"`, and the staged `package_sha256`. Include a `checks` object with a brief evidence note under each of `source_and_rights`, `hook_and_payoff`, and `sound_and_sync`. The reviewer identity must differ from the editor's. Revise and stage a new cut ID if a check fails. The queue binds the approval to the selected file and both platform packages.
 
 ## Publish and verify
 
 1. Use `brave-tabs memory` and the existing task tab. Run `python3 studio_queue.py claim --worker PUBLISHER` when ready. `null` means no approved work is eligible or another attempt owns the browser slot. Check `status` for the cause.
-2. Confirm the signed-in channel or profile and the exact file and copy from the claim. Run `python3 studio_queue.py begin TOKEN` **before** the first platform mutation, including creating a draft. Continue only on `submitting`. Run `renew TOKEN` during the operation and before a new mutation if the lease is close to expiry. Stop interacting when the lease has expired. Use `remember TOKEN PUBLIC_URL` as soon as the platform exposes a YouTube video ID or Instagram Reel code that can be represented as a permalink.
+2. Confirm the signed-in channel or profile and the exact file and copy from the claim. Record a preflight JSON with the observed `platform`, `account`, the claimed `package_sha256`, and the `upload_file` you will select. For a paid cut, include `campaign_brief`, the path to its current checked brief. Relative paths resolve next to the preflight file. Run `python3 studio_queue.py begin TOKEN --preflight PREFLIGHT.json` **before** the first platform mutation, including creating a draft. The gate rehashes the selected file and reruns the paid-campaign preflight when declared. Continue only on `submitting`. Run `renew TOKEN` during the operation and before a new mutation if the lease is close to expiry. Stop interacting when the lease has expired. Use `remember TOKEN PUBLIC_URL` as soon as the platform exposes a YouTube video ID or Instagram Reel code that can be represented as a permalink.
    When using the macOS file picker, wait until its Open sheet is visible before selecting a file. If it needs a visible Downloads copy, verify that copy against the claim hash and use the exact row in the picker.
-3. Open the published permalink and verify visibility, account, visible video and exact copy. Record the timestamp from platform readback, the account, `visibility: "public"`, `public_url`, `public_at` (ISO format with time zone), `artifact_sha256`, exact `caption`, `title` for YouTube, and `evidence` stating what you checked. The hash identifies the locally selected upload file. Platforms may transcode its bytes. Run `python3 studio_queue.py finish TOKEN RECEIPT.json`. An identical finished receipt can be retried safely. Use `history` to audit claims and receipts.
+3. Open the published permalink and verify visibility, account, visible video and exact copy. Record the timestamp from platform readback, the account, `visibility: "public"`, `public_url`, `public_at` (ISO format with time zone), `artifact_sha256`, exact `caption`, `title` for YouTube, and `evidence` stating what you checked. The hash identifies the locally selected upload file. Platforms may transcode its bytes. On new cuts, include `playback` with `played: true`, `hook_and_payoff_seen: true`, the observed `duration_seconds`, and the boolean `sound_heard`. Confirm playback with volume on. If it cannot be confirmed, record it with `release TOKEN --evidence REASON` to move the attempt into reconciliation. Retry the readback of that same permalink. Run `python3 studio_queue.py finish TOKEN RECEIPT.json`. An identical finished receipt can be retried safely. Use `history` to audit claims and receipts.
 
 A pre-mutation lease can be released with `release TOKEN --evidence REASON`; an expired claim also returns to ready. A submission with an uncertain result reserves the browser slot in reconciliation, including after expiry. Confirm that the prior worker stopped and check the intended account's public posts, drafts and pending uploads. Run `reconcile TOKEN RECEIPT.json` with `prior_worker_stopped: true` added to the verified receipt if the post exists. If the post and draft are both absent, use `outcome: "absent"`, `account`, `evidence`, and explicit true flags for `prior_worker_stopped`, `pending_uploads_checked`, and `public_posts_checked`. If a draft survives and you cannot safely reconcile it as public or absent, keep the lock and escalate with the draft ID. Recover that existing draft through the verified account before considering a second upload.
 
 Keep the SQLite file and its sibling `.media` folder together. There is one database for the real publisher. Use `--queue` with a separate path for synthetic rehearsals. Native Twitch Clips can be tracked with a separate source receipt when the player and rights allow it.
+
+Existing staged cuts and receipts retain their original contract. A new stage or revision uses all current checks. See the [verification gates](studio-verification-gates.md) for failures and recovery.
