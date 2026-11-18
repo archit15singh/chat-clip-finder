@@ -137,6 +137,16 @@ class StudioQueueTest(unittest.TestCase):
             else:
                 with self.assertRaisesRegex(ValueError, "non-silent audio"):
                     self.queue.stage(manifest)
+        package.update(id="original", supersedes="first", sound={
+            "mode": "original", "reason": "Use a generated score", "rights_evidence": "Generated tone",
+        })
+        manifest.write_text(json.dumps(package))
+        with self.assertRaisesRegex(ValueError, "source_audio_omission"):
+            self.queue.stage(manifest)
+        package["sound"]["source_audio_omission"] = "No broadcast audio in the source fixture"
+        manifest.write_text(json.dumps(package))
+        self.queue.stage(manifest)
+        self.assertEqual(self.queue.inspect("original")["package"]["sound"], package["sound"])
         self.queue.stage(self.manifest(cut="silent", scene="silent"))
 
     def test_edit_must_match_source_bounds_runtime_and_reviewed_beats(self):
@@ -167,6 +177,7 @@ class StudioQueueTest(unittest.TestCase):
         evidence = review_export(audio_file, self.root / "short-sound-review", (0, 0.5))
         manifest.update(artifact=str(audio_file), media_review=str(evidence), sound={
             "mode": "original", "reason": "Test truncated sound", "rights_evidence": "Generated tone",
+            "source_audio_omission": "No broadcast audio in the source fixture",
         })
         with self.assertRaisesRegex(ValueError, "cover the picture"):
             self.queue.stage(self.write("short-sound.json", manifest))

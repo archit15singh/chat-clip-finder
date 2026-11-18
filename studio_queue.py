@@ -158,6 +158,8 @@ def package_data(path):
         package["sound"] = {key: require_text(sound, key) for key in ("mode", "reason")}
         if package["sound"]["mode"] != "silent":
             package["sound"]["rights_evidence"] = require_text(sound, "rights_evidence")
+        if package["sound"]["mode"] == "original" and "source_audio_omission" in sound:
+            package["sound"]["source_audio_omission"] = require_text(sound, "source_audio_omission")
     if "edit" in raw:
         edit = raw["edit"]
         package["edit"] = {key: edit[key] for key in (
@@ -198,6 +200,8 @@ def check_sound(package, report):
     sound = package.get("sound")
     if not sound or sound["mode"] not in {"source", "original", "silent"}:
         raise ValueError("Declare sound mode as source, original, or intentionally silent")
+    if sound["mode"] == "original" and not sound.get("source_audio_omission"):
+        raise ValueError("Explain why creator and game audio were omitted in sound.source_audio_omission")
     if sound["mode"] == "silent":
         if package["audio_present"]:
             raise ValueError("An intentionally silent export must omit the audio track")
