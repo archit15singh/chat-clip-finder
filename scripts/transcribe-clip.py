@@ -4,7 +4,9 @@
 import argparse
 from pathlib import Path
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
+import wave
 
 
 def subrip_time(centiseconds):
@@ -39,21 +41,34 @@ def main():
                 "-i", str(args.video.resolve()), "-map", "0:a:0", "-vn",
                 "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(audio),
             ], check=True)
+            with wave.open(str(audio), "rb") as decoded:
+                audio_end = decoded.getnframes() * 100 // decoded.getframerate()
             model = Model(str(args.model.resolve()), n_threads=4)
             segments = model.transcribe(str(audio), language=args.language)
         cues = []
+        adjusted = 0
         for segment in segments:
             spoken = segment.text.strip()
-            if spoken and segment.t1 > segment.t0 >= 0:
+            if not spoken:
+                continue
+            end = min(segment.t1, audio_end)
+            adjusted += end < segment.t1
+            if end > segment.t0 >= 0:
                 cues.append(
                     f"{len(cues) + 1}\n"
-                    f"{subrip_time(segment.t0)} --> {subrip_time(segment.t1)}\n{spoken}\n"
+                    f"{subrip_time(segment.t0)} --> {subrip_time(end)}\n{spoken}\n"
                 )
+        if adjusted:
+            print(
+                f"Adjusted {adjusted} Whisper cue(s) beyond the decoded audio. "
+                "Check the ending against playback.",
+                file=sys.stderr,
+            )
         if not cues:
             parser.error("Whisper returned no timecoded cues")
         with args.out.open("x", encoding="utf-8") as output:
             output.write("\n".join(cues))
-    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+    except (OSError, RuntimeError, subprocess.CalledProcessError, wave.Error) as error:
         parser.exit(1, f"Transcription failed: {error}\n")
 
 

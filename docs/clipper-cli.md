@@ -55,7 +55,7 @@ python3 -m venv .improvement/speech-env
   --model .improvement/models/ggml-base.bin --out excerpt.srt
 ```
 
-Use the same excerpt when previewing so the timestamps line up. The flag works with a marked moment or range. Without it, explicit ranges stay exact.
+Use the same excerpt when previewing so the timestamps line up. The transcription command flags cues adjusted to the decoded audio end. Check those endings against playback. The flag works with a marked moment or range. Without it, explicit ranges stay exact.
 
 ```sh
 python3 clip_finder.py --video excerpt.mp4 --range 11.75-25.25 \
