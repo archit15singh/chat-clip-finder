@@ -253,6 +253,28 @@ class StudioQueueTest(unittest.TestCase):
         proof = self.write("native-preflight.json", base)
         self.assertEqual(self.queue.begin(claim["token"], proof)["state"], "submitting")
 
+    def test_handoff_and_native_scene_identity(self):
+        clip = "https://www.twitch.tv/creator/clip/Original"
+        manifest = json.loads(self.manifest().read_text())
+        manifest["twitch_native_clip"] = clip
+        staged = self.queue.stage(self.write("native.json", manifest))
+        other = json.loads(self.manifest(cut="other", scene="another", media=1).read_text())
+        other["twitch_native_clip"] = clip + "/?range=7d"
+        with self.assertRaisesRegex(ValueError, "Twitch clip already belongs"):
+            self.queue.stage(self.write("native-duplicate.json", other))
+
+        handoff = self.queue.handoff()
+        self.assertEqual(handoff["awaiting_review"], [
+            {"cut": staged["cut"], "platforms": ["youtube", "instagram"]},
+        ])
+        self.assertEqual(handoff["ready_to_publish"], [])
+        self.approve(staged)
+        claim = self.queue.claim("browser")
+        handoff = self.queue.handoff()
+        self.assertEqual(handoff["active_delivery"]["token"], claim["token"])
+        self.assertEqual(handoff["awaiting_review"], [])
+        self.assertEqual(handoff["ready_to_publish"], [{"cut": staged["cut"], "platform": "instagram"}])
+
     def test_review_binds_copy_and_revision(self):
         manifest = self.manifest()
         staged = self.queue.stage(manifest)
@@ -340,6 +362,10 @@ class StudioQueueTest(unittest.TestCase):
         states = {row["platform"]: row["state"] for row in self.queue.status()}
         self.assertEqual(states, {"youtube": "verified", "instagram": "reconcile"})
         schedule = self.queue.milestones()
+        handoff = self.queue.handoff()
+        self.assertEqual(handoff["active_delivery"]["state"], "reconcile")
+        self.assertEqual(handoff["analytics_schedule"], schedule)
+        self.assertEqual(handoff["verified_posts"][0]["public_url"], "https://www.youtube.com/shorts/abcdefghijk")
         self.assertEqual([(row["platform"], row["age_hours"]) for row in schedule],
                          [("youtube", age) for age in (24, 72, 168)])
         published_at = datetime.fromisoformat(json.loads(proof.read_text())["public_at"])

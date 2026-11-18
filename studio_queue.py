@@ -325,6 +325,12 @@ class Queue:
                 "SELECT 1 FROM cuts WHERE artifact_sha256 = ? AND scene != ?", (digest, scene),
             ).fetchone():
                 raise ValueError("These exact media bytes already belong to a different scene")
+            if "twitch_native_clip" in package and self.db.execute(
+                """SELECT 1 FROM cuts WHERE scene != ?
+                   AND json_extract(package, '$.twitch_native_clip') = ?""",
+                (scene, package["twitch_native_clip"]),
+            ).fetchone():
+                raise ValueError("This Twitch clip already belongs to a different scene")
             current = self.db.execute(
                 "SELECT id FROM cuts WHERE scene = ? AND replaced_by IS NULL", (scene,),
             ).fetchone()
@@ -660,8 +666,12 @@ class Queue:
         return self.record(token, receipt, recovery=True)
 
     def milestones(self):
+        return self.schedule(self.status())
+
+    @staticmethod
+    def schedule(deliveries):
         schedule = []
-        for delivery in self.status():
+        for delivery in deliveries:
             receipt = delivery["receipt"]
             if delivery["state"] != "verified" or not receipt:
                 continue
@@ -673,6 +683,32 @@ class Queue:
                     "due_at": (published_at + timedelta(hours=age)).isoformat(),
                 })
         return sorted(schedule, key=lambda sample: datetime.fromisoformat(sample["due_at"]))
+
+    def handoff(self):
+        deliveries = self.status()
+        active = [row for row in deliveries if row["state"] in {"claimed", "submitting", "reconcile"}]
+        ready, needs_review = [], {}
+        for row in deliveries:
+            if row["state"] != "ready":
+                continue
+            cut_id = row["cut_id"]
+            if row["reviewer"]:
+                ready.append({"cut": cut_id, "platform": row["platform"]})
+            else:
+                needs_review.setdefault(cut_id, []).append(row["platform"])
+        return {
+            "active_delivery": active[0] if active else None,
+            "ready_to_publish": ready,
+            "awaiting_review": [
+                {"cut": cut_id, "platforms": platforms} for cut_id, platforms in needs_review.items()
+            ],
+            "verified_posts": [
+                {"cut": row["cut_id"], "platform": row["platform"],
+                 "public_url": row["receipt"]["public_url"], "public_at": row["receipt"]["public_at"]}
+                for row in deliveries if row["state"] == "verified"
+            ],
+            "analytics_schedule": self.schedule(deliveries),
+        }
 
     def history(self):
         records = [dict(row) for row in self.db.execute("SELECT * FROM attempts ORDER BY rowid")]
@@ -723,6 +759,7 @@ def main():
     commands.add_parser("status")
     commands.add_parser("history")
     commands.add_parser("milestones")
+    commands.add_parser("handoff")
     args = vars(parser.parse_args())
     database = args.pop("queue").resolve()
     command = args.pop("command")
