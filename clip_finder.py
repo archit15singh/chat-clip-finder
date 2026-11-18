@@ -245,16 +245,21 @@ def speech_spans(srt):
             raise ValueError(f"Invalid SRT timing at cue {index} in {srt.name}") from None
         if end <= start:
             raise ValueError(f"Invalid SRT timing at cue {index} in {srt.name}")
-        spoken = re.sub(r"<[^>]*>|\[[^]]*\]", "", " ".join(lines[timing + 1:]))
+        spoken = re.sub(r"<[^>]*>|\[[^]]*\]", "", " ".join(lines[timing + 1:])).strip()
         if any(character.isalnum() for character in spoken):
-            cues.append((start, end))
+            cues.append((start, end, spoken))
 
     spans = []
-    for start, end in sorted(cues):
-        if spans and start <= spans[-1][1] + SPEECH_GAP_SECONDS:
+    previous_finished = False
+    for start, end, spoken in sorted(cues, key=lambda cue: cue[:2]):
+        speaker_change = spoken.startswith((">>", "– ", "— ", "- "))
+        if spans and not previous_finished and not speaker_change and (
+            start <= spans[-1][1] + SPEECH_GAP_SECONDS
+        ):
             spans[-1] = (spans[-1][0], max(spans[-1][1], end))
         else:
             spans.append((start, end))
+        previous_finished = spoken.rstrip('\"\'”’)]').endswith((".", "!", "?", "…"))
     return spans
 
 
@@ -264,7 +269,7 @@ def finish_reaction(clip, spans, duration):
             next_start = spans[index + 1][0] if index + 1 < len(spans) else duration
             out = min(duration, round(end + SPEECH_POSTROLL_SECONDS, 3))
             if next_start < duration:
-                out = min(out, round(next_start - 0.04, 3))
+                out = min(out, round(max(end, next_start - 0.04), 3))
             return replace(clip, end_seconds=out), {
                 "requested_end_seconds": clip.end_seconds,
                 "speech_end_seconds": end,

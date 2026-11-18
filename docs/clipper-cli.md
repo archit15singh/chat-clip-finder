@@ -53,7 +53,7 @@ python3 clip_finder.py --video excerpt.mp4 --range 11.75-25.25 \
   --speech-srt excerpt.srt --out reaction-preview --preview
 ```
 
-If the requested end falls inside a spoken cue, the finder follows adjacent speech fragments across gaps of up to 250 ms. It extends through the last fragment and gives it up to 350 ms of breathing room within the footage. Bracketed sound labels such as `[MUSIC]` do not extend the cut. The report records the requested end, detected speech end and whether the source ran out before the speech finished. Use the suggested timestamp in a custom edit or remove `--preview` to export the adjusted cut. Listen to the finished export and verify that the captions followed the actual line.
+If the requested end falls inside a spoken cue, the finder follows adjacent speech fragments across gaps of up to 250 ms until a sentence ends or captions mark a speaker change. If the reaction spans multiple complete lines, place the requested end within its final line. It extends through the last fragment and gives it up to 350 ms of breathing room within the footage. Bracketed sound labels such as `[MUSIC]` do not extend the cut. The report records the requested end, detected speech end and whether the source ran out before the speech finished. Use the suggested timestamp in a custom edit or remove `--preview` to export the adjusted cut. Listen to the finished export and verify that the captions followed the actual line.
 
 ## Measure how much of a highlight you captured
 
