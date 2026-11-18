@@ -19,6 +19,10 @@ Run the repository checks with `python3 -m unittest discover -s tests -v`. Keep 
 - Run `distributor` after a verified release to identify where the scene fits and plan a useful community-native placement. Read the destination's rules and keep its permission, message, link, and measurement evidence with the placement. See [organic distribution](docs/studio-distributor.md).
 - Default to cleared sound and listen to the exact export during independent review. Keep audio files local when reviewing through Codex. Use the [audio and editing guide](docs/editing-toolkit.md#keep-sound-through-the-edit) for tool evidence and playback. The queue checks for audio signal and accepts a trackless export only with a stated editorial or rights reason.
 
+## Diagrams
+
+When Archit says "visualise" or "visualize", render the visualization as plain ASCII in a fenced `text` block.
+
 ## Browser use
 
 Use the `brave-tabs` skill for tab management and Computer Use for page interaction. Reuse one task tab for a batch of clips and its verification. Run `brave-tabs memory` before and during media-heavy work. Close disposable task tabs by ID. If memory pressure rises, use OneTab to park only selected, finished task tabs with no unsaved state. Preserve the user's tabs and private sign-ins. If Brave is unresponsive, stop browser work until it recovers.
