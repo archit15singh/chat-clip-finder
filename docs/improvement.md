@@ -79,6 +79,8 @@ TwitchDownloaderCLI videodownload --id "$VOD_ID" --beginning 3624s --ending 3705
 
 The report counts messages in sliding ten-second windows and compares each to the median of its six immediately preceding ten-second windows. It returns nonoverlapping candidates with at least ten messages and three times the baseline rate. An empty list indicates that no window reached both thresholds. Review the footage around each returned VOD offset to establish the cause and select the actual boundaries.
 
+For a first pass through a long archive, use `--min-separation 30` to keep at least 30 seconds between selected window starts. This keeps the strongest window from the repeated reactions observed during the Lacy shower and Clix seaplane scenes. Return to the default ten seconds when reviewing a sequence where multiple nearby events may matter.
+
 ### Review the edit as a viewer
 
 Watch the first two seconds and the full cut on mute. Open on the action or a line that establishes what the creator wants. Check that the obstacle, result, and reaction are visible on a phone-sized preview. For an edit with audio, review the permitted source track and caption the dialogue. For a silent edit, use short on-screen context for facts a viewer can verify in the scene. Keep chat counts, ratios, and detection details in the run log. Include a chat message in the cut only when it explains something happening in the scene, such as a viewer command the creator follows.

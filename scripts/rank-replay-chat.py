@@ -15,7 +15,7 @@ MIN_MESSAGES = 10
 MIN_RATIO = 3
 
 
-def rank_replay(export, limit):
+def rank_replay(export, limit, min_separation=WINDOW_SECONDS):
     video = export["video"]
     start = ceil(video["start"])
     end = floor(video["end"])
@@ -46,8 +46,10 @@ def rank_replay(export, limit):
 
     selected = []
     for candidate in sorted(candidates, key=lambda item: (item["ratio"], item["messages"]), reverse=True):
-        if any(abs(candidate["start_vod_seconds"] - picked["start_vod_seconds"]) < WINDOW_SECONDS
-               for picked in selected):
+        if any(
+            abs(candidate["start_vod_seconds"] - picked["start_vod_seconds"]) < min_separation
+            for picked in selected
+        ):
             continue
         candidate["ratio"] = round(candidate["ratio"], 3)
         selected.append(candidate)
@@ -60,12 +62,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("chat", type=Path)
     parser.add_argument("--limit", type=int, default=5)
+    parser.add_argument(
+        "--min-separation", type=int, default=WINDOW_SECONDS, metavar="SECONDS",
+        help="minimum time between selected window starts (default: %(default)s)",
+    )
     args = parser.parse_args()
     if args.limit < 1:
         parser.error("--limit must be positive")
+    if args.min_separation < WINDOW_SECONDS:
+        parser.error(f"--min-separation must be at least {WINDOW_SECONDS} seconds")
     try:
         export = json.loads(args.chat.read_text(encoding="utf-8-sig"))
-        result = rank_replay(export, args.limit)
+        result = rank_replay(export, args.limit, args.min_separation)
     except (OSError, ValueError, TypeError, KeyError, OverflowError) as error:
         parser.error(str(error))
     print(json.dumps(result, indent=2))
