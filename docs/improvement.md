@@ -46,6 +46,23 @@ A rejection writes evidence and exits 1. An execution or input error exits 2. Th
 
 The local regression suite uses the Lysium, Burn, Diables, and Buddha excerpts from the earlier field runs. Comparing the same code and settings returned `unchanged`. A 50-second ending gained coverage on the suite and passed its review budgets. A 90-second ending exceeded Buddha's budget and returned `reject`. These are known examples and verify the gate. A default change still needs fresh evidence. [Field tests](field-tests.md)
 
+## Run a live scouting round
+
+Codex can own the round from shortlist through publish readback. Start with three live channels. Record audience, chat cadence, likely clip formats, and the source permissions. Run the live watcher when its credentials are available. If reading visible browser chat in rotation, record actual elapsed times and count only rows reconciled between snapshots. Save aggregate counts and use `null` when the rows cannot be reconciled.
+
+```json
+{"channels":{"creator":{"ended_unix_ms":1795013942964,"samples":[[3000,6],[3100,7],[2900,null],[3050,19]]}}}
+```
+
+```sh
+python3 scripts/summarize-chat-samples.py .improvement/observations.json \
+  --baseline-samples 9 --window-samples 3 > .improvement/summary.json
+```
+
+Each pair is elapsed milliseconds and the number of newly visible messages. Choose warmup and scoring window lengths before the next capture. The report compares a sustained rate after warmup against the channel's own baseline. Use it to find candidate moments for review. It reports elapsed-time estimates from visible chat, while the authenticated watcher uses exact ten-second buckets.
+
+Record what happened at a candidate timestamp, what context the draft needs, the review decision, and the confirmed publishing scope. After publishing, record both public links, edit time, and platform metrics at the same post age. Choose one bottleneck to improve from the field evidence. Use the pinned VOD comparison before promoting a detector change.
+
 ## Reuse existing tools
 
 Search before building an integration. Test a candidate against the actual channel or media format and record its license, pinned revision, setup time, and observed failure or success. Keep the adapter small so another tool can replace it.
