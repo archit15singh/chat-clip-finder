@@ -36,7 +36,7 @@ python3 review_media.py path/to/selected.mp4 --out review --audio-evidence
 
 The clipper writes a `clips.json` manifest with source boundaries and, for ranked picks, the chat count and baseline. The [command reference](docs/clipper-cli.md) covers replay offsets, exclusions, live Twitch setup, manual observation, URL cuts, and coverage scoring.
 
-To run a full production round, start with the [production workflow](docs/production-workflow-plan.md) and [repository instructions](AGENTS.md). Keep recordings, raw chat, private references, and queue state in the ignored `.improvement/` directory or outside the checkout. Keep credentials in your environment or signed-in browser.
+To run the studio as a continuous loop, use the [goal prompt](docs/studio-goal.md) with the [production workflow](docs/production-workflow-plan.md) and [repository instructions](AGENTS.md). Keep recordings, raw chat, private references, and queue state in the ignored `.improvement/` directory or outside the checkout. Keep credentials in your environment or signed-in browser.
 
 ## Verify locally
 
