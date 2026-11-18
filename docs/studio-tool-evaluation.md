@@ -23,3 +23,12 @@ Coverage means one proposed clip includes the selected setup, payoff and spoken 
 The manually selected boundaries are the editorial reference and were available before the picker comparison. The trials do not estimate discovery accuracy across full VODs, production cost, or viewer retention. ClipShlip remains a desktop comparator and OpusClip a hosted one. Neither has a measured output in this evaluation. The generic AutoClip label in a saved Reel did not establish which upstream it showed. [ClipShlip](https://theharisai.com/clipshlip/) · [OpusClip](https://www.opus.pro/)
 
 For new trials, freeze a few clips and the expected visible beats. Record coverage, runtime, needed corrections, audio and captions, setup, and data handling. Promote a tool for the stage it improves. Keep the output in the established review and publishing workflow.
+
+## Local soundtrack and out-point probes
+
+On the same Mac, compare automated observations against the known score-first bridge cut and the beach cut whose last word was audibly truncated.
+
+| Tool | Observed result | Production use |
+| --- | --- | --- |
+| Apple Sound Analysis v1 | Music appeared among the top four labels in 2 of 8 windows on the score-first bridge control, compared with 4 of 9 on the rooftop candidate. | Use label timestamps to guide inspection. This trial did not establish a reliable music threshold. [Sound Analysis](https://developer.apple.com/documentation/soundanalysis) |
+| MLX Audio 0.6.6 with Qwen2-Audio 7B Instruct 4-bit | In 5.31 seconds of inference on the 42-second beach cut, it reported a clipped word but quoted a different final line and invented timestamps beyond the file. It detected the score on the bridge control and also gave a timestamp beyond that file. | Keep outside release approval. The exact export still needs independent listening. [Model documentation](https://github.com/blaizzy/mlx-audio/blob/main/docs/models/stt/qwen2-audio.md) |
