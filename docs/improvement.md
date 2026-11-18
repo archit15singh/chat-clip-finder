@@ -61,7 +61,9 @@ python3 scripts/summarize-chat-samples.py .improvement/observations.json \
 
 Each pair is elapsed milliseconds and the number of newly visible messages. Choose warmup and scoring window lengths before the next capture. The report compares a sustained rate after warmup against the channel's own baseline. Use it to find candidate moments for review. It reports elapsed-time estimates from visible chat, while the authenticated watcher uses exact ten-second buckets.
 
-Record what happened at a candidate timestamp, what context the draft needs, the review decision, and the confirmed publishing scope. After publishing, record both public links, edit time, and platform metrics at the same post age. Choose one bottleneck to improve from the field evidence. Use the pinned VOD comparison before promoting a detector change.
+Record what happened at a candidate timestamp, what context the draft needs, the review decision, and the confirmed publishing scope. If Twitch links a clip to its full broadcast, use that VOD timestamp to inspect the lead-in. Measure complete replay windows of equal duration. Check the onset before assuming the popular clip starts where chat first reacted. Record playback failures and unsuitable scenes as rejected candidates.
+
+When the source channel allows it, publish a native Twitch Clip and use an eligible capture for the reviewed Reels and Shorts edit. Record links for each platform, edit time and metrics at the same post age. Track Content Rewards eligibility and payout separately from publication. Choose one bottleneck to improve from the field evidence, and use the pinned VOD comparison before promoting a detector change.
 
 ## Reuse existing tools
 
