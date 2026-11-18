@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import shutil
@@ -160,6 +160,11 @@ class StudioQueueTest(unittest.TestCase):
         self.assertIsNone(self.queue.claim("other-worker"))
         states = {row["platform"]: row["state"] for row in self.queue.status()}
         self.assertEqual(states, {"youtube": "verified", "instagram": "reconcile"})
+        schedule = self.queue.milestones()
+        self.assertEqual([(row["platform"], row["age_hours"]) for row in schedule],
+                         [("youtube", age) for age in (24, 72, 168)])
+        published_at = datetime.fromisoformat(json.loads(proof.read_text())["public_at"])
+        self.assertEqual(datetime.fromisoformat(schedule[0]["due_at"]) - published_at, timedelta(days=1))
         absent = {"account": "@profile", "outcome": "absent", "prior_worker_stopped": True,
                   "evidence": "Checked owner account and creation flow",
                   "pending_uploads_checked": True, "public_posts_checked": True}

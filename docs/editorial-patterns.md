@@ -21,3 +21,7 @@ Three posts reviewed on November 19, 2026. The examples use different ways to ma
 - **Try it on After the Spike.** Build a one-mechanic clip from cleared creator gameplay. Start with the object already in view and keep the before and after readable within one crop. For a convertible, hold the roofline from activation until it settles, then include the creator’s visible reaction if it adds something. Compare it with a cut that starts on the facecam and switches to the car.
 
 For the next eligible scene, pick the technique that best explains its payoff. In the run log, record the reference, the first meaningful frame, when the result becomes visible, and what changed between drafts. Ask a viewer unfamiliar with the source to watch at phone size on mute and say what the player tried, what happened, and what they would send to a friend. Use comparable platform analytics to evaluate the published edit once enough data arrives. [Timing and measurement](short-form-experiments.md)
+
+## Apply the opening test to different scenes
+
+Compare equally long opening treatments first. In the grocery cut, produce and the game's shopping prompt established the premise faster than the pickup storage screen. In the Lacy cut, the phone crop made the first profile and its joke legible while the wide bar shot supplied context better a beat later. Both comparisons held the edit after the first two seconds constant. Keep this as a phone-size review question. Only use matched-age platform data to judge how audiences actually respond. [Field rounds](studio-rounds.md)
