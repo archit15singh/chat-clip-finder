@@ -57,3 +57,25 @@ Search before building an integration. Test a candidate against the actual chann
 | Kick footage | The native clip tool supports live streams and replays and offers an MP4 download after a native clip is published. Use it when source and campaign terms permit that publication, or import a supplied recording. [Kick's clip guide](https://help.kick.com/en/articles/7120566-how-to-create-clips-on-kick) |
 | Authorized live recordings | Streamlink has a Kick plugin and can write a local recording. Its Kick plugin requires a browser. Evaluate it on a permitted stream if a supplied recording or native clip becomes the bottleneck. [Streamlink](https://github.com/streamlink/streamlink) · [Plugin documentation](https://streamlink.github.io/plugins.html#kick) |
 | Kick live chat | A local install of the MIT-licensed kick-chat-replay at `af1b035` succeeded, but the public channel lookup returned HTTP 403 on November 18, 2026. Use `live_clipper.py observe` for a pilot. Kick's official chat webhook requires an app and a publicly accessible endpoint. Consider it after manual sampling becomes a repeat bottleneck. [Pinned collector](https://github.com/flackomarketing/kick-chat-replay/tree/af1b0352dea606a86c8da97e82d94fac7c64c237) · [Kick Events API](https://github.com/KickEngineering/KickDevDocs/blob/main/events/introduction.md) |
+
+## Caption a draft locally
+
+The optional MIT-licensed pywhispercpp CLI writes an editable SRT. FFmpeg can burn the reviewed subtitles into the portrait draft. Install pywhispercpp 1.5.1 in a separate environment and keep the Whisper `tiny.en` model and working files under `.improvement/`. The macOS ARM64 Python 3.13 wheel and an FFmpeg build with libass were used for this check. [pywhispercpp release](https://github.com/absadiki/pywhispercpp/releases/tag/v1.5.1) · [Whisper model files](https://huggingface.co/ggerganov/whisper.cpp/tree/main)
+
+Run from the draft folder with the model path set in `WHISPER_MODEL` and the environment's `pwcpp` on PATH.
+
+```sh
+ffmpeg -n -i draft.mp4 -vn -ar 16000 -ac 1 voice.wav
+pwcpp -m "$WHISPER_MODEL" -osrt --language en --token_timestamps True \
+  --max_len 38 --split_on_word True voice.wav
+```
+
+Listen against the draft and correct `voice.wav.srt`. Merge fragments that flash too quickly. Check names, overlapping voices and where the text falls in the frame.
+
+```sh
+ffmpeg -n -i draft.mp4 \
+  -vf "subtitles=voice.wav.srt:force_style='FontName=Arial,FontSize=15,Bold=1,Outline=2,MarginV=42'" \
+  -c:v libx264 -preset veryfast -crf 20 -c:a copy captioned.mp4
+```
+
+A local 30-second stream excerpt took 6.60 seconds to produce preliminary subtitles and 1.31 seconds to burn them. One generated cue was 0.30 seconds long and needed merging with its neighbor. These timings exclude setup and editorial review.
