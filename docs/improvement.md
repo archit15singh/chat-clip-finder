@@ -95,6 +95,8 @@ When visual review shows that chat reacts during the setup, try moving two secon
 
 Before a new edit, review three actual posts from at least two clipping accounts. Note what happens in the opening, when the payoff lands, how the audio contributes, and what the caption adds. Record the links and choose a technique the new scene can use. Compare the final export against the first draft or an earlier clip and name a change you can point to in the video. Use cleared source audio when it carries the moment, and add narration only when it supplies context viewers need. Watch at phone size and on mute. Use retention and shares at comparable post ages when available to decide what to test next.
 
+Write down why a GTA VI player would send this scene to a friend. Let that answer guide framing, timing, sound, and the caption. A surprising game mechanic can open on the object, while a reaction-led scene may need a few frames of anticipation before cutting to the facecam. Drop visual flourishes that make the action harder to read. Review the cut once as a viewer who has never seen the source stream.
+
 ### Write and verify the public description
 
 After reviewing the final cut, write the description with the title and opening frame in view. Use one short first line that adds a concrete detail a viewer can recognize in the clip. Name the specific vehicle, mechanic, place, or obstacle when it matters. Leave the payoff in the video when it is the reason to watch. Cut any sentence that could describe another clip or repeats the title without adding information.
