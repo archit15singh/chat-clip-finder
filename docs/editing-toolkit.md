@@ -81,7 +81,7 @@ Carry cleared creator reactions and game cues into the first cut. If an edit cha
 
 In Codex, keep audio bytes on disk. Use `review_media.py --audio-evidence` for waveform, spectrum, gain and silence, and local Whisper when you need speech cues. Send the model text and image evidence only. On the GPT-6.2-Sol Codex route, returning audio through the tool's `audio()` helper can save an unsupported `input_audio` item in the conversation and cause later turns to fail with HTTP 400. Get an independent listener's verdict from local playback of the exact export. If playback is unavailable, record it as pending and hold approval.
 
-For a picture-only export with known cut points, restore sound from the original local recording without changing the encoded picture:
+If a picture pass stripped or replaced the broadcast mix, restore cleared source sound against the same cut points before reviewing the export. This keeps the encoded picture intact:
 
 ```sh
 python3 restore_source_audio.py picture.mp4 source.mp4 --span 4:10 --span 17:22 --out with-sound.mp4
