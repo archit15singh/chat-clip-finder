@@ -46,7 +46,16 @@ Use seconds, `MM:SS`, or `HH:MM:SS`, with optional fractional seconds. Repeat `-
 
 ## Finish a spoken reaction at the cut
 
-Pass local SubRip captions on the same source clock as the recording. The flag works with a marked moment or range. Without it, explicit ranges stay exact.
+Pass local SubRip captions on the same source clock as the recording. To generate them locally from an excerpt, use FFmpeg and [pywhispercpp](https://pypi.org/project/pywhispercpp/) with a [Whisper GGML model](https://github.com/ggml-org/whisper.cpp#quick-start). Keep the model, clip, and transcript local.
+
+```sh
+python3 -m venv .improvement/speech-env
+.improvement/speech-env/bin/python -m pip install 'pywhispercpp==1.5.1'
+.improvement/speech-env/bin/python scripts/transcribe-clip.py excerpt.mp4 \
+  --model .improvement/models/ggml-base.bin --out excerpt.srt
+```
+
+Use the same excerpt when previewing so the timestamps line up. The flag works with a marked moment or range. Without it, explicit ranges stay exact.
 
 ```sh
 python3 clip_finder.py --video excerpt.mp4 --range 11.75-25.25 \
