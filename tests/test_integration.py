@@ -131,6 +131,23 @@ class ClipperIntegration(unittest.TestCase):
                 ], text=True)
                 self.assertAlmostEqual(float(duration), 4.55, delta=0.2)
 
+    def test_speech_tail_stops_at_sentences_and_speaker_changes(self):
+        captions = self.root / "speech-boundaries.srt"
+        captions.write_text(
+            "1\n00:00:01,000 --> 00:00:02,000\nWe made it.\n\n"
+            "2\n00:00:02,000 --> 00:00:03,000\nI was about to\n\n"
+            "3\n00:00:03,100 --> 00:00:04,000\n<i>>> Look out!</i>\n"
+        )
+        output = self.root / "speech-boundaries"
+        result = subprocess.run([
+            sys.executable, str(CLI), "--video", str(self.video),
+            "--range", "0-1.5", "--range", "0-2.99", "--speech-srt", str(captions),
+            "--out", str(output), "--preview",
+        ], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        rows = json.loads((output / "clips.json").read_text())["clips"]
+        self.assertEqual([row["end_seconds"] for row in rows], [2, 3.06])
+
     def clip_url_range(self, path, target):
         with ThreadingHTTPServer(
             ("127.0.0.1", 0), partial(QuietHTTPHandler, directory=self.root),
