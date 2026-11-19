@@ -10,6 +10,7 @@ from pathlib import Path
 SAMPLE_RATE = 16000
 ANCHOR_SECONDS = 2
 MIN_CORRELATION = 0.8
+MIN_ANCHOR_RANGE = 4  # 16-bit PCM steps. Ignore decoder rounding around digital silence.
 
 
 def pcm(path, np):
@@ -19,6 +20,27 @@ def pcm(path, np):
         check=True, stdout=subprocess.PIPE,
     )
     return np.frombuffer(result.stdout, dtype="<i2").astype("float64")
+
+
+def anchor_starts(clip, width, np):
+    last_start = len(clip) - width
+    preferred = np.linspace(0, last_start, 3, dtype=int)
+    if all(np.ptp(clip[start:start + width]) >= MIN_ANCHOR_RANGE for start in preferred):
+        return preferred
+
+    # A muted opening or tail can occupy one of the usual anchor positions.
+    # Find disjoint windows with signal and still require three matches.
+    available = []
+    start = 0
+    while start <= last_start:
+        if np.ptp(clip[start:start + width]) >= MIN_ANCHOR_RANGE:
+            available.append(start)
+            start += width
+        else:
+            start += width // 8
+    if len(available) < 3:
+        raise ValueError("Fewer than three non-overlapping audio anchors contain signal")
+    return [available[index] for index in np.linspace(0, len(available) - 1, 3, dtype=int)]
 
 
 def align(clip, replay, np):
@@ -33,13 +55,10 @@ def align(clip, replay, np):
     sums = np.r_[0.0, replay.cumsum()]
     squares = np.r_[0.0, (replay * replay).cumsum()]
     matches = []
-    for start in np.linspace(0, len(clip) - width, 3, dtype=int):
+    for start in anchor_starts(clip, width, np):
         anchor = clip[start:start + width].copy()
         anchor -= anchor.mean()
         power = np.linalg.norm(anchor)
-        if not power:
-            raise ValueError("An anchor is silent")
-
         stop = start + offsets
         means = sums[start + width:stop + width] - sums[start:stop]
         energy = squares[start + width:stop + width] - squares[start:stop]
@@ -53,9 +72,9 @@ def align(clip, replay, np):
         alternate[max(0, offset - radius):offset + radius + 1] = -1
         if confidence < MIN_CORRELATION or alternate.max() > confidence - 0.03:
             raise ValueError("An anchor has no clear unique match")
-        matches.append((offset, confidence))
+        matches.append((start, offset, confidence))
 
-    positions = sorted(offset for offset, _ in matches)
+    positions = sorted(offset for _, offset, _ in matches)
     if positions[-1] - positions[0] > SAMPLE_RATE * 0.05:
         raise ValueError("Audio anchors disagree on the clip offset")
     return positions[1] / SAMPLE_RATE, matches
@@ -81,8 +100,9 @@ def main():
         "vod_start": round(start, 6),
         "vod_end": round(start + len(clip) / SAMPLE_RATE, 6),
         "anchors": [
-            {"offset_seconds": offset / SAMPLE_RATE, "correlation": round(score, 4)}
-            for offset, score in matches
+            {"clip_anchor_start_seconds": start / SAMPLE_RATE,
+             "offset_seconds": offset / SAMPLE_RATE, "correlation": round(score, 4)}
+            for start, offset, score in matches
         ],
     }, indent=2))
 
