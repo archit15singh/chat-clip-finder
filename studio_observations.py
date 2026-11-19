@@ -8,6 +8,7 @@ import json
 import math
 from pathlib import Path
 import sqlite3
+import subprocess
 
 from studio_queue import PLATFORMS, QUEUE_PATH, permalink, require_text
 
@@ -21,6 +22,7 @@ def timestamp(value):
 
 # Allow a practical collection window while keeping late readbacks out of matched-age comparisons.
 MILESTONE_LAG_HOURS = {24: 1, 72: 3, 168: 7}
+PUBLIC_METRICS = ("view_count", "like_count", "comment_count")
 
 
 def checked_milestone(row, age_seconds):
@@ -89,16 +91,67 @@ def read_verified_posts(database):
         }
 
 
+def collect_public_observations(urls, published, milestone_hours):
+    targets = {}
+    for link in urls:
+        for platform in PLATFORMS:
+            try:
+                post_id, url = permalink(platform, link)
+            except ValueError:
+                continue
+            key = platform, post_id
+            if key in published:
+                targets[key] = url
+                break
+        else:
+            raise ValueError(f"No verified publication receipt for {link}")
+
+    observations = []
+    for (platform, post_id), url in targets.items():
+        if milestone_hours:
+            age = (datetime.now(timezone.utc) - published[platform, post_id][1]).total_seconds()
+            checked_milestone({"milestone_hours": milestone_hours}, age)
+        try:
+            response = subprocess.run(
+                ["yt-dlp", "--ignore-config", "--socket-timeout", "12", "--retries", "0",
+                 "--no-playlist", "--skip-download", "-J", url],
+                capture_output=True, text=True, timeout=35, check=True,
+            )
+            data = json.loads(response.stdout)
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            raise ValueError(f"Could not read public metadata for {url}: {type(error).__name__}") from error
+        if not isinstance(data, dict) or data.get("id") != post_id:
+            raise ValueError(f"Public metadata did not identify {url}")
+        row = {
+            "platform": platform, "url": url,
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "metric_source": "public_platform_metadata",
+            "metrics": {key: data.get(key) for key in PUBLIC_METRICS},
+        }
+        if milestone_hours:
+            row["milestone_hours"] = milestone_hours
+        observations.append(row)
+    return observations
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("readings", type=Path)
+    parser.add_argument("readings", nargs="?", type=Path)
+    parser.add_argument("--collect-public", nargs="+", metavar="URL",
+                        help="Read public counts for verified permalinks with yt-dlp")
+    parser.add_argument("--milestone", type=int, choices=MILESTONE_LAG_HOURS,
+                        help="Require this post age window when collecting public counts")
     parser.add_argument("--queue", type=Path, default=QUEUE_PATH)
     args = parser.parse_args()
+    if bool(args.readings) == bool(args.collect_public):
+        parser.error("Provide a readings file or --collect-public URLs")
+    if args.milestone and not args.collect_public:
+        parser.error("--milestone applies to --collect-public")
     try:
-        checked = check_observations(
-            json.loads(args.readings.read_text()), read_verified_posts(args.queue),
-            datetime.now(timezone.utc),
-        )
+        published = read_verified_posts(args.queue)
+        readings = (collect_public_observations(args.collect_public, published, args.milestone)
+                    if args.collect_public else json.loads(args.readings.read_text()))
+        checked = check_observations(readings, published, datetime.now(timezone.utc))
     except (OSError, sqlite3.Error, ValueError, KeyError, TypeError) as error:
         parser.exit(2, f"studio observations: {error}\n")
     print(json.dumps(checked, indent=2, ensure_ascii=False, allow_nan=False))
