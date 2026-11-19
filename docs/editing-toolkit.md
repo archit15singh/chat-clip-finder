@@ -31,11 +31,11 @@ mkdir -p .improvement
 clip_job=$(mktemp -d "$PWD/.improvement/edit.XXXXXX")
 clip_export="$clip_job/draft.mp4"
 
-ffmpeg -v error -ss 00:01:12 -i "${CLIP_INPUT:?Set CLIP_INPUT to a local source}" -t 00:00:30 \
+ffmpeg -nostdin -v error -ss 00:01:12 -i "${CLIP_INPUT:?Set CLIP_INPUT to a local source}" -t 00:00:30 \
   -map 0:v:0 -map '0:a:0?' -c:v libx264 -pix_fmt yuv420p -c:a aac "$clip_export"
 ffprobe -v error -show_entries 'format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate' \
   -of json "$clip_export" > "$clip_job/probe.json"
-ffmpeg -v error -xerror -i "$clip_export" -map 0:v:0 -map '0:a:0?' -f null -
+ffmpeg -nostdin -v error -xerror -i "$clip_export" -map 0:v:0 -map '0:a:0?' -f null -
 
 (cd ../footagepilot && python3 -m footagepilot reference "$clip_export" \
   --interval 0.5 --output "$clip_job/draft-review")
@@ -99,7 +99,7 @@ Local speech recognition can recover a word from context even when the cut trims
 Play both tails, from the same point in the phrase through the export boundary and then through the following pause in the replay. When the finish is hard to locate under gameplay, extract those short windows and compare their spectrograms. Set the input duration before `-i` so the image covers only the sampled audio.
 
 ```sh
-ffmpeg -ss "$tail_start" -t "$tail_duration" -i "$media_file" \
+ffmpeg -nostdin -ss "$tail_start" -t "$tail_duration" -i "$media_file" \
   -lavfi 'showspectrumpic=s=1000x320:legend=1:scale=log:start=120:stop=6500' \
   -frames:v 1 tail-spectrum.png
 ```

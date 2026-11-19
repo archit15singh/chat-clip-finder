@@ -15,7 +15,7 @@ MIN_ANCHOR_RANGE = 4  # 16-bit PCM steps. Ignore decoder rounding around digital
 
 def pcm(path, np):
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a:0",
+        ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-map", "0:a:0",
          "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"],
         check=True, stdout=subprocess.PIPE,
     )
