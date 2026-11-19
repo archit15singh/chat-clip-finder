@@ -43,3 +43,26 @@ class RankReplayChatTest(unittest.TestCase):
         self.assertEqual(filtered["gift_notices_excluded"], 2)
         self.assertEqual(filtered["peaks"][0]["messages"], 11)
         self.assertEqual(filtered["peaks"][0]["baseline_median"], 1)
+
+    def test_confirmed_chat_command_filter_is_opt_in_and_matches_the_first_token(self):
+        audience = ["wow"] * 7 + ["gta", "they said !gta", "!gta-vibes"]
+        messages = audience + [" !GTA ", "!gta \u034f", "!entry option"]
+        with TemporaryDirectory() as directory:
+            chat = Path(directory) / "chat.json"
+            chat.write_text(json.dumps({
+                "video": {"id": "123", "start": 0, "end": 70},
+                "comments": [
+                    *({"content_offset_seconds": offset} for offset in range(0, 60, 10)),
+                    *({"content_offset_seconds": 60, "message": {"body": body}} for body in messages),
+                ],
+            }), encoding="utf-8")
+            command = [sys.executable, str(CLI), str(chat)]
+            raw = json.loads(subprocess.check_output(command))
+            filtered = json.loads(subprocess.check_output([
+                *command, "--exclude-chat-command", "!gta", "--exclude-chat-command", "!entry",
+            ]))
+
+        self.assertNotIn("chat_commands_excluded", raw)
+        self.assertEqual(raw["peaks"][0]["messages"], 13)
+        self.assertEqual(filtered["chat_commands_excluded"], 3)
+        self.assertEqual(filtered["peaks"][0]["messages"], 10)

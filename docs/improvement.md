@@ -81,6 +81,8 @@ The report counts messages in sliding ten-second windows and compares each to th
 
 If gift subs dominate the replay, repeat the ranking with `--exclude-gift-notices`. It removes the recognized English batch and per-recipient announcements from both the candidate and baseline windows. The report includes `gift_notices_excluded`. In the Jason Day 2 archive, it excluded 17 announcements and moved the leading window by seven seconds. Footage confirmed that the new window was still a reaction to another stream. The same flag left Loserfruit's 12-message fridge cue unchanged.
 
+If the footage confirms that a creator asked viewers to enter a giveaway with a chat command, rerank that replay excerpt with `--exclude-chat-command '!gta'` using the actual command. Repeat the flag for additional confirmed commands. The filter matches the first token without regard to case, also covering commands with arguments. It applies to candidate and baseline windows and reports `chat_commands_excluded`. Ordinary mentions within a longer message stay in the count.
+
 For a first pass through a long archive, use `--min-separation 30` to keep at least 30 seconds between selected window starts. This keeps the strongest window from the repeated reactions observed during the Lacy shower and Clix seaplane scenes. Return to the default ten seconds when reviewing a sequence where multiple nearby events may matter.
 
 ### Review the edit as a viewer
