@@ -2,7 +2,7 @@
 
 **Status**: approved on November 19, 2026. Implement in the verified merge sequence below.
 
-Run After the Spike like a small GTA VI editorial studio. Learn from specific creative work, choose scenes with a reason to watch, and verify what viewers actually receive. Research, scouting, and editing can advance while a previous cut is being published or measured.
+Run After the Spike like a small GTA VI editorial studio. Learn from specific creative work, choose scenes with a reason to watch, and verify what viewers actually receive. Research, scouting, and editing can advance while a previous cut is being published or measured. Run each selected video against the [five-minute video SLA](publishing-queue.md#five-minute-video-sla).
 
 ## Workflow
 
