@@ -43,8 +43,10 @@ def main():
         ], "Could not resolve an accessible Twitch replay")
         if not stream.startswith("https://") or "\n" in stream:
             raise ValueError("Expected a single HTTPS media stream")
+        # An explicit zero seek can skip the first frames of a Twitch replay.
+        seek = ["-ss", str(args.start)] if args.start else []
         capture = subprocess.run([
-            *ffmpeg, "-rw_timeout", "12000000", "-ss", str(args.start), "-i", stream,
+            *ffmpeg, "-rw_timeout", "12000000", *seek, "-i", stream,
             "-t", str(args.duration), "-map", "0:v:0", "-map", "0:a:0",
             "-vf", "setsar=1", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "21",
             "-c:a", "aac", str(preview),
