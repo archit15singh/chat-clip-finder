@@ -17,6 +17,26 @@ def capture_output(command, failure):
     return result.stdout.strip()
 
 
+def render_contact_sheet(ffmpeg, preview, length, path):
+    sample = f"fps=16/{length}:start_time=0"
+    grid = "tile=4x4"
+    scale = "scale=320:-2"
+    # Label the decoded frame before fps resets its presentation timestamp.
+    label = (r"drawtext=text='%{pts\:hms}':fontsize=15:fontcolor=white:"
+             "box=1:boxcolor=black@0.85:boxborderw=3:x=w-tw-7:y=h-th-7")
+    command = [*ffmpeg, "-y", "-i", str(preview), "-vf"]
+    output = ["-frames:v", "1", "-update", "1", str(path)]
+    labeled = subprocess.run([
+        *command, f"{scale},{label},{sample},{grid}", *output,
+    ], capture_output=True)
+    if labeled.returncode:
+        # Some FFmpeg packages omit drawtext or have no usable fonts.
+        subprocess.run([
+            *command, f"{sample},{scale},{grid}", *output,
+        ], check=True)
+        print("Contact sheet saved without timestamps (drawtext unavailable)", file=sys.stderr)
+
+
 def capture_preview(vod_id, start, length, output):
     reference = f"https://www.twitch.tv/videos/{vod_id}"
     preview = output / "preview.mp4"
@@ -50,11 +70,7 @@ def capture_preview(vod_id, start, length, output):
     duration = float(measured)
     if duration < length - 0.25:
         raise ValueError(f"Replay window ended early ({duration:.3f} of {length}s)")
-    subprocess.run([
-        *ffmpeg, "-i", str(preview), "-vf",
-        f"fps=16/{length}:start_time=0,scale=320:-2,tile=4x4",
-        "-frames:v", "1", "-update", "1", str(output / "frames.jpg"),
-    ], check=True)
+    render_contact_sheet(ffmpeg, preview, length, output / "frames.jpg")
     (output / "source.json").write_text(json.dumps({
         "reference": reference,
         "requested_vod_start_seconds": start,

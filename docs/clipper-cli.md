@@ -47,7 +47,7 @@ mkdir -p .improvement
   --out .improvement/replay-scout-1891
 ```
 
-Open `frames.jpg` and `speech.srt` to decide whether the incident warrants an edit. Confirm cues against `preview.mp4`, which keeps the source aspect ratio and audio. The transcript clock starts at the first frame of that file. `source.json` records the requested VOD offset and measured preview length. Verify the opening and ending on the source before using that offset in an edit. For an ongoing broadcast, select a window already in the replay. An incomplete capture leaves the requested output path free. Retry there once the window is available. If the decoded audio is silent or speech extraction fails, inspect the saved preview and frames.
+Open `frames.jpg` and `speech.srt` to decide whether the incident warrants an edit. The frame labels and transcript cues use the same clock, starting at the beginning of `preview.mp4`. FFmpeg builds without `drawtext` or usable fonts still produce the sheet. Confirm cues and audio against the preview. `source.json` records the requested VOD offset and measured preview length. Verify the opening and ending on the source before using that offset in an edit. For an ongoing broadcast, select a window already in the replay. An incomplete capture leaves the requested output path free. Retry there once the window is available. If the decoded audio is silent or speech extraction fails, inspect the saved preview and frames.
 
 ### Check native clip timestamps
 
