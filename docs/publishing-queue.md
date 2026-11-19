@@ -4,6 +4,14 @@ Research, scouting and editing can run in parallel. A single publisher holds the
 
 Run `python3 studio_queue.py handoff` at the start of a round or after an interruption. It lists cuts awaiting independent review, approved deliveries, any attempt occupying the publisher slot, verified public links, and analytics times derived from the same receipts. Use `inspect CUT` to read the exact review package and `claim` to acquire the publishing lease.
 
+## Five-minute video SLA
+
+The target is verified public playback on each intended destination within five minutes of first processing. Record the UTC start in the run log when the studio first captures, exports, or renders a selected video for delivery. Use that same start for all destinations and revisions of the video. Scouting previews used to decide what to select come before this clock.
+
+Use the time to prepare copy and permission evidence alongside the edit, then send the exact package through independent review and the single publisher. At five minutes, record which destinations are verified and log any miss with its current stage, blocker, owner, and next check. Hold an unapproved delivery and move the next eligible candidate forward. If the platform already has the video, preserve its ID or draft and follow the reconciliation rules below. A known processing YouTube showcase can free the publisher slot through the existing deferral path. Resolve any lock before starting another upload.
+
+Record the eventual public receipt when the platform is ready. For a paid post, follow the campaign's separate submission deadline from actual publication.
+
 ## Prepare the handoff
 
 1. For archived Twitch chat, scout with `scripts/rank-replay-chat.py` and verify the selected moment in the VOD. Use `vod-offset` with seconds from the start of that VOD. For `clip_finder.py` on an excerpt, add the report's `settings.vod_start_seconds` to its local start and end.
