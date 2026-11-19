@@ -2,6 +2,7 @@
 """Capture a short Twitch replay preview with local frames and speech cues."""
 
 import argparse
+from importlib.util import find_spec
 import json
 from pathlib import Path
 import re
@@ -93,6 +94,8 @@ def main():
         parser.error("Start must be nonnegative and duration must be 1–180 seconds")
     if not args.model.is_file():
         parser.error(f"Model not found: {args.model}")
+    if find_spec("pywhispercpp") is None:
+        parser.error("Run the scout with the Python environment that has pywhispercpp installed")
 
     try:
         if args.out.exists() or args.out.is_symlink():
