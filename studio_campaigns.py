@@ -2,6 +2,7 @@
 """Check campaign handoffs against the brief and the local publishing queue."""
 
 import argparse
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
@@ -61,7 +62,8 @@ def verified_brief(brief, now, *, live=True):
 
 
 def read_cut(database, cut_id):
-    with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+    uri = database.resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
         cut = connection.execute(
             "SELECT package, reviewer, fingerprint, replaced_by FROM cuts WHERE id = ?", (cut_id,)
         ).fetchone()

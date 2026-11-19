@@ -2,6 +2,7 @@
 """Check analytics readings against verified posts and calculate their actual age."""
 
 import argparse
+from contextlib import closing
 from datetime import datetime, timezone
 import json
 import math
@@ -78,7 +79,7 @@ def check_observations(rows, published, now):
 
 def read_verified_posts(database):
     uri = database.resolve().as_uri() + "?mode=ro"
-    with sqlite3.connect(uri, uri=True) as connection:
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
         rows = connection.execute(
             "SELECT cut_id, platform, external_id, receipt FROM deliveries WHERE state = 'verified'"
         )
