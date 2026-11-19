@@ -92,6 +92,20 @@ python3 review_media.py with-sound.mp4 --audio-evidence --out with-sound-review
 
 Pass spans in picture order and in local source seconds. Their total must match the picture duration. Play through the exact export to check intelligibility, synchronization and transitions. Use the peak, silence, waveform and spectrum as evidence alongside playback. Review rights for every included layer, especially background music. Existing public posts keep their original receipts. A local reconstruction is a new file for review.
 
+### Check a final word against the replay
+
+Local speech recognition can recover a word from context even when the cut trims its final sound. If a cue reaches the end of the export or the out-point sounds abrupt, match the last continuous span to a replay that continues past the cut. Use the edit's source span or [align the native clip to its replay](publishing-queue.md#deliver-through-twitchs-native-export). Mark the export end on that source clock.
+
+Play both tails, from the same point in the phrase through the export boundary and then through the following pause in the replay. When the finish is hard to locate under gameplay, extract those short windows and compare their spectrograms. Set the input duration before `-i` so the image covers only the sampled audio.
+
+```sh
+ffmpeg -ss "$tail_start" -t "$tail_duration" -i "$media_file" \
+  -lavfi 'showspectrumpic=s=1000x320:legend=1:scale=log:start=120:stop=6500' \
+  -frames:v 1 tail-spectrum.png
+```
+
+For a custom cut, extend the same source span through the final sound and a natural pause. For a Twitch-native delivery, use a longer official portrait if available or hold the clip. Review the new exact bytes and record the source and export end times. Keep the spectrogram as supporting evidence for the listening check.
+
 ### Keep the reaction through a game menu
 
 When the gameplay payoff is already visible and a menu opens during the creator's final line, try cutting the picture to the simultaneous facecam. Keep the existing dialogue, game audio and end point. Compare the versions around the cut to make sure the facecam is readable and the viewer has already seen the result. Listen through the final word and hold. If the revision only changes framing, compare the decoded audio hashes.
