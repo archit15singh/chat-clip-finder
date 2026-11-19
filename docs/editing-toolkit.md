@@ -96,6 +96,8 @@ Pass spans in picture order and in local source seconds. Their total must match 
 
 Local speech recognition can recover a word from context even when the cut trims its final sound. If a cue reaches the end of the export or the out-point sounds abrupt, match the last continuous span to a replay that continues past the cut. Use the edit's source span or [align the native clip to its replay](publishing-queue.md#deliver-through-twitchs-native-export). Mark the export end on that source clock.
 
+When the native clip has word-by-word captions, step forward by a few frames through the whole phrase. One frame can show a partial caption even when the rest of the line appears on the next card. Compare the exact clip's final sound and hold with a short control that ends before the suspected final word. Use those checks to guide the listening review.
+
 Play both tails, from the same point in the phrase through the export boundary and then through the following pause in the replay. When the finish is hard to locate under gameplay, extract those short windows and compare their spectrograms. Set the input duration before `-i` so the image covers only the sampled audio.
 
 ```sh
