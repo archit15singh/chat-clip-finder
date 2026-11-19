@@ -43,6 +43,8 @@ def main():
             ], check=True)
             with wave.open(str(audio), "rb") as decoded:
                 audio_end = decoded.getnframes() * 100 // decoded.getframerate()
+                if not any(chunk.strip(b"\x00") for chunk in iter(lambda: decoded.readframes(16000), b"")):
+                    raise RuntimeError("Decoded audio is silent")
             model = Model(str(args.model.resolve()), n_threads=4)
             segments = model.transcribe(str(audio), language=args.language)
         cues = []
