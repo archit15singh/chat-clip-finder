@@ -1,6 +1,15 @@
-# Learn from saved clips
+# Learn from reference clips
 
-Use `reference_learner` when the user gives an Instagram Saved collection, a set of creator posts, or local reference files. The learner reports what the creator did with the picture and sound, then gives After the Spike something original to test.
+Use `reference_learner` for an Instagram search batch, an Instagram Saved collection, a set of creator posts, or local reference files. The learner reports what the creator did with the picture and sound, then gives After the Spike something original to test.
+
+## Run a GTA VI Instagram search batch
+
+1. The source agent starts with the last checkpoint in `.improvement/studio/references/`. Record the signed-in account, query, result surface, UTC start, next studio checkpoint, and first unreviewed result. Use `GTA 6` or `GTA VI` for the initial sweep. On later passes, use the alternate spelling or a query tied to the next scene's editorial question. Coordinate with the publisher before taking a browser tab. Use the signed-in After the Spike account and one task tab for the batch.
+2. Take the visible results in order. Inventory every tile in the batch, including unrelated and non-video results. Record the canonical Reel shortcode when available. Deduplicate against earlier batches by shortcode, keeping repeated appearances as discovery evidence and reusing their prior notes. For each unique relevant Reel, open it and record whether it received full picture-and-sound analysis, picture-only or listing-only review, or a specific access blocker. Write the evidence actually available for each item using the review steps below. Playback or a legitimately accessible media copy supports timeline review. A thumbnail, caption or visible count supports only that observation. Keep footage, private links, frames and transcripts local.
+3. Set the batch boundary at the end of the current results or the next studio checkpoint, whichever comes first. At the checkpoint, send the scout and editor the strongest supported technique, its exception or comparison, and one original test that changes a single variable. Give the scout a visible event to seek in Twitch live or replay footage, plus a rejection condition. Pass source identifiers, verified time bounds and the actual reuse evidence through the existing Twitch workflow. A reference Reel is editorial evidence only. Its presence on Instagram grants no footage or audio reuse.
+4. Record the last completed result and the first unfinished result with their visible positions and shortcodes where available. A batch is complete when every inventoried tile has a review or a recorded reason it could not be reviewed. Continue from the first unfinished item in the next pass while the studio round is active. At the end of the round, leave the same checkpoint for the next run. If the feed moves between visits, reconcile by shortcode and record the new position. Report seen, unique, fully analyzed, partial, unavailable, and unfinished totals for the batch. When access fails, save the blocker and resume from the checkpoint once the browser works.
+
+Keep the learning pass moving alongside Twitch scouting and publishing. When a video is selected for delivery, apply the [five-minute SLA](publishing-queue.md#five-minute-video-sla) independently of the reference review.
 
 ## Inventory the collection
 

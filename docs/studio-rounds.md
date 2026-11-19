@@ -2,6 +2,14 @@
 
 Use the [production plan](production-workflow-plan.md) for the full workflow and the [timing guide](short-form-experiments.md) for comparisons. Keep raw source footage and queue evidence local. Record the public links and the editorial lesson here so the next round starts from what was actually tested.
 
+## Test and merge a reference lesson
+
+Start each Instagram-led round with the [source agent's search batch](reference-learning.md#run-a-gta-vi-instagram-search-batch). Ask the editor to compare two treatments of the same authorized Twitch scene using the proposed variable. Keep the scene, payoff, sound and package constant where they can be held constant. Record the variant, expected effect and metric before publishing. Use the independent review and normal queue for the chosen release.
+
+Read back the exact verified post at a comparable age using the steps below. Compare within the same platform and metric source, and record differences in topic, audience or length. Treat an editorial review as evidence about legibility and timing. Treat an audience improvement as a hypothesis until the available metrics support it.
+
+When a batch gives a reproducible workflow fix or a reference lesson supported by another example or counterexample, open a small PR with the evidence, limits and next test. Commit the reusable change and public evidence while keeping source media and private material local. Have the round owner run the repository checks and review the diff before merging to `main`. Record the PR, merge commit and next batch cursor together. When the evidence is incomplete, use the run checkpoint to continue the comparison.
+
 ## Clix grocery run
 
 [Source on Twitch](https://www.twitch.tv/videos/2932204601?t=5h55m7s). On the VOD clock the chat cue was 5:55:13, with 20 messages against a 6.5 median. The crop preserves Clix and the interaction prompts. The scene moves from buying groceries to stowing the bag in the pickup. Local shot times and evidence are under `.improvement/studio/grocery/`.
