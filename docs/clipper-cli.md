@@ -49,6 +49,18 @@ mkdir -p .improvement
 
 Open `frames.jpg` and `speech.srt` to decide whether the incident warrants an edit. The frame labels and transcript cues use the same clock, starting at the beginning of `preview.mp4`. FFmpeg builds without `drawtext` or usable fonts still produce the sheet. Confirm cues and audio against the preview. `source.json` records the requested VOD offset and measured preview length. Verify the opening and ending on the source before using that offset in an edit. For an ongoing broadcast, select a window already in the replay. An incomplete capture leaves the requested output path free. Retry there once the window is available. If speech extraction fails after capture, inspect the saved preview and frames. To retry only the speech step, pass the saved `preview.mp4` to `scripts/transcribe-clip.py` in the same Python environment.
 
+### Scout native clips across a game category
+
+When recent chat peaks and channel clip lists turn up the same scenes, check the [Twitch GTA VI category clips](https://www.twitch.tv/directory/category/grand-theft-auto-vi/clips). Use a bounded recent sample and deduplicate by Twitch clip ID. Record the creator, clip URL, creation time, and the visible setup and payoff. Rank candidates by what the scene shows. The category and clip title can be misleading.
+
+Check formats before downloading a scout preview. Choose a listed portrait format for visual triage.
+
+```sh
+yt-dlp --list-formats 'https://www.twitch.tv/CREATOR/clip/SLUG'
+```
+
+The November 19 category check found 40 clips across 28 creators, including 29 clips on channels with viewer export enabled. All seven shortlisted clips had portrait previews. Two showed a distinct gameplay event, a dog riding a jet ski and a motorcycle mishap. Both remained in scouting while audio and exact share scope were checked. Inspect the exact Share menu and review the official delivery rendition before approval. [Twitch clip API](https://dev.twitch.tv/docs/api/reference/clips#get-clips) · [Native export workflow](publishing-queue.md#deliver-through-twitchs-native-export)
+
 ### Check native clip timestamps
 
 A ranked channel listing can return clips from an earlier broadcast even when its date range overlaps the current replay. Read timestamps from flat metadata before downloading candidate media. Compare against the replay's Unix start timestamp. This example uses `jq` and keeps the ranking order.
