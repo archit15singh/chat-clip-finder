@@ -70,7 +70,9 @@ esac
 
 The listing timestamp records clip creation. Use it for date triage and use the replay clock for source position. In the AsianJeff floatplane check, clip creation was 4,191 seconds after the broadcast started. Three independent audio matches placed the clip at about 3,262–3,292 seconds in the replay, over 15 minutes earlier than the creation-based estimate.
 
-Start with a short window when the scene has a clear replay cue. If the estimate misses, search earlier bounded excerpts from the same replay, using audio-only excerpts from a lower-bitrate rendition first. Re-capture the matching window and verify three audio anchors, source frames, and both speech boundaries before recording a source range. See [native clip verification](publishing-queue.md#deliver-through-twitchs-native-export) for the alignment command. An empty listing result describes the ranked sample. Verify the creator’s sharing scope separately.
+Treat Twitch's reported `videoOffsetSeconds` as a search cue too. A SkiiMaskTimmy portrait reported an offset of 3,960 seconds on VOD 2933946215. Three independent audio anchors placed the 60-second clip at 3,896.06–3,956.07. Its actual ending was about 39 seconds before the scene we were looking for. [Twitch clip 2435231256](https://www.twitch.tv/skiimasktimmy/clip/TenuousFreezingCoffeeNerfBlueBlaster-3DJPCpussHxoKtFZ)
+
+Start with a short window when the scene has a clear replay cue. If matching around a reported offset fails, try a bounded excerpt starting at least one clip duration earlier and include a short margin on both ends. Use audio-only excerpts from a lower-bitrate rendition first. Re-capture the matching window and verify three audio anchors, source frames, and both speech boundaries before recording a source range. See [native clip verification](publishing-queue.md#deliver-through-twitchs-native-export) for the alignment command. An empty listing result describes the ranked sample. Verify the creator’s sharing scope separately.
 
 ## Clip a local recording without chat
 
