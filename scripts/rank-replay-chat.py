@@ -22,12 +22,10 @@ GIFT_NOTICE = re.compile(
 )
 
 
-def is_gift_notice(comment):
-    body = (comment.get("message") or {}).get("body")
-    return isinstance(body, str) and GIFT_NOTICE.fullmatch(body.strip()) is not None
-
-
-def rank_replay(export, limit, min_separation=WINDOW_SECONDS, *, exclude_gift_notices=False):
+def rank_replay(
+    export, limit, min_separation=WINDOW_SECONDS, *,
+    exclude_gift_notices=False, exclude_chat_commands=(),
+):
     video = export["video"]
     start = ceil(video["start"])
     end = floor(video["end"])
@@ -36,10 +34,19 @@ def rank_replay(export, limit, min_separation=WINDOW_SECONDS, *, exclude_gift_no
 
     counts = Counter()
     gift_notices_excluded = 0
+    chat_commands_excluded = 0
+    excluded_commands = {command.casefold() for command in exclude_chat_commands}
+    filter_messages = exclude_gift_notices or excluded_commands
     for comment in export["comments"]:
-        if exclude_gift_notices and is_gift_notice(comment):
-            gift_notices_excluded += 1
-            continue
+        body = (comment.get("message") or {}).get("body") if filter_messages else None
+        if isinstance(body, str):
+            body = body.strip()
+            if exclude_gift_notices and GIFT_NOTICE.fullmatch(body):
+                gift_notices_excluded += 1
+                continue
+            if excluded_commands and body and body.split(maxsplit=1)[0].casefold() in excluded_commands:
+                chat_commands_excluded += 1
+                continue
         counts[floor(comment["content_offset_seconds"])] += 1
     totals = {
         second: sum(counts[i] for i in range(second, second + WINDOW_SECONDS))
@@ -76,6 +83,8 @@ def rank_replay(export, limit, min_separation=WINDOW_SECONDS, *, exclude_gift_no
     result = {"vod_id": video["id"], "export_start": start, "export_end": end, "peaks": selected}
     if exclude_gift_notices:
         result["gift_notices_excluded"] = gift_notices_excluded
+    if excluded_commands:
+        result["chat_commands_excluded"] = chat_commands_excluded
     return result
 
 
@@ -88,6 +97,10 @@ def main():
         help="omit recognized English gift-sub announcements from replay counts",
     )
     parser.add_argument(
+        "--exclude-chat-command", action="append", default=[], metavar="COMMAND",
+        help="omit messages that start with this confirmed !command (repeatable)",
+    )
+    parser.add_argument(
         "--min-separation", type=int, default=WINDOW_SECONDS, metavar="SECONDS",
         help="minimum time between selected window starts (default: %(default)s)",
     )
@@ -96,10 +109,13 @@ def main():
         parser.error("--limit must be positive")
     if args.min_separation < WINDOW_SECONDS:
         parser.error(f"--min-separation must be at least {WINDOW_SECONDS} seconds")
+    if any(not re.fullmatch(r"!\w[\w-]*", command) for command in args.exclude_chat_command):
+        parser.error("--exclude-chat-command requires a single !command token")
     try:
         export = json.loads(args.chat.read_text(encoding="utf-8-sig"))
         result = rank_replay(
             export, args.limit, args.min_separation, exclude_gift_notices=args.exclude_gift_notices,
+            exclude_chat_commands=args.exclude_chat_command,
         )
     except (OSError, ValueError, TypeError, KeyError, OverflowError) as error:
         parser.error(str(error))
