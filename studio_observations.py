@@ -21,7 +21,7 @@ def timestamp(value):
 
 
 # Allow a practical collection window while keeping late readbacks out of matched-age comparisons.
-MILESTONE_LAG_HOURS = {24: 1, 72: 3, 168: 7}
+MILESTONE_LAG_HOURS = {2: 0.25, 24: 1, 72: 3, 168: 7}
 PUBLIC_METRICS = ("view_count", "like_count", "comment_count")
 
 
@@ -30,7 +30,7 @@ def checked_milestone(row, age_seconds):
         return {}
     hours = row["milestone_hours"]
     if type(hours) is not int or hours not in MILESTONE_LAG_HOURS:
-        raise ValueError("Use a 24, 72 or 168 hour milestone")
+        raise ValueError("Use a 2, 24, 72 or 168 hour milestone")
     if not hours * 3600 <= age_seconds <= (hours + MILESTONE_LAG_HOURS[hours]) * 3600:
         raise ValueError("Actual post age is outside the named milestone window")
     return {"milestone_hours": hours}

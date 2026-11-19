@@ -38,7 +38,9 @@ Save each readback as an entry in a local JSON array. Use `platform`, `url`, `ob
 python3 studio_observations.py .improvement/studio/analytics-readings.json
 ```
 
-The command checks each post against the publishing queue and outputs its actual age in seconds, using the publication time recorded in the receipt. Keep the checked output alongside the original readings. Use optional `milestone_hours` only for a sample collected in its actual window. The verifier accepts 24–25, 72–75, and 168–175 hours as the default comparison windows. Save early and late readings without a milestone tag so their actual age stays visible. Compare ages and metric sources before interpreting differences.
+The command checks each post against the publishing queue and outputs its actual age in seconds, using the publication time recorded in the receipt. Keep the checked output alongside the original readings. Use optional `milestone_hours` only for a sample collected in its actual window. The verifier accepts 24–25, 72–75, and 168–175 hours as the standard comparison windows. Save readings outside the available windows without a milestone tag so their actual age stays visible. Compare ages and metric sources before interpreting differences.
+
+For posts published during a 24-hour run, you can also collect a two-hour reading while that run is still active. Record it from two hours through two hours and 15 minutes after publication and set `milestone_hours` to `2`. For public counts the collector accepts `--milestone 2`. Keep this early comparison separate from the 24-hour results and label public and owner readings by source.
 
 When owner insights are unavailable, use public counts as a fallback. With `yt-dlp` on `PATH`, pass a verified permalink and the milestone you are collecting. The command checks the receipt and actual age, then returns the named public counts with unavailable fields set to `null`. Omit `--milestone` for an observation outside the scheduled window. Keep these rows under their public metric source.
 
