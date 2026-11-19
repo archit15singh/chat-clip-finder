@@ -90,7 +90,7 @@ Existing staged cuts and receipts retain their original contract. A new stage or
 
 Use this route when the creator enables direct social exports for the exact Twitch clip. Verify the destination buttons are available, and review the official portrait rendition that Twitch supplies for that clip. Keep its original bytes as the manifest artifact and run `review_media.py --twitch-native` to accept Twitch’s HEVC portrait rendition. Record the creator opt-in and the native-only scope in both destination rights notes. Add `twitch_native_clip` to the manifest with the Twitch clip permalink.
 
-For a clip you trim in Twitch, verify the saved rendition against a bounded replay excerpt. The editor timeline is relative to its captured window. With NumPy and FFmpeg available, match independent audio anchors against the replay and record the confirmed range. Inspect the result against source speech and frames at both boundaries.
+For a clip you trim in Twitch, verify the saved rendition against a bounded replay excerpt. The editor timeline is relative to its captured window. With NumPy and FFmpeg available, match three independent audio anchors against the replay and record the confirmed range. A silent tail can move the anchors earlier in the clip. Read their positions in the report and inspect the result against source speech and frames at both boundaries.
 
 ```sh
 python3 scripts/align-clip-audio.py native-portrait.mp4 replay-excerpt.mp4 --replay-start 690
