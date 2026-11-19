@@ -49,6 +49,27 @@ mkdir -p .improvement
 
 Open `frames.jpg` and `speech.srt` to decide whether the incident warrants an edit. Confirm cues against `preview.mp4`, which keeps the source aspect ratio and audio. The transcript clock starts at the first frame of that file. `source.json` records the requested VOD offset and measured preview length. Verify the opening and ending on the source before using that offset in an edit. For an ongoing broadcast, select a window already in the replay. The command reports a short capture as an error. If the decoded audio is silent or speech extraction fails, inspect the saved preview and frames.
 
+### Check native clip timestamps
+
+A ranked channel listing can return clips from an earlier broadcast even when its date range overlaps the current replay. Read timestamps from flat metadata before downloading candidate media. Compare against the replay's Unix start timestamp. This example uses `jq` and keeps the ranking order.
+
+```sh
+vod_started=$(yt-dlp --skip-download --print '%(timestamp)s' 'https://www.twitch.tv/videos/VOD_ID')
+clips_url='https://www.twitch.tv/CREATOR/clips?filter=clips&range=24hr'
+case "$vod_started" in
+  ''|*[!0-9]*) echo "Replay start unavailable" >&2 ;;
+  *)
+    yt-dlp --flat-playlist --playlist-end 50 -j "$clips_url" |
+      jq -r --argjson since "$vod_started" '
+        select((.timestamp | type) == "number" and .timestamp >= $since)
+        | [.id, .title, .url] | @tsv
+      '
+    ;;
+esac
+```
+
+Confirm surviving candidates against source frames and audio. A timestamp only establishes that a clip was made after the replay started. An empty result describes the ranked sample. Keep scouting and verify the creator's sharing scope separately.
+
 ## Clip a local recording without chat
 
 ```sh
