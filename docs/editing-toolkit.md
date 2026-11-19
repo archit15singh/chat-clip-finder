@@ -91,3 +91,7 @@ python3 review_media.py with-sound.mp4 --audio-evidence --out with-sound-review
 ```
 
 Pass spans in picture order and in local source seconds. Their total must match the picture duration. Play through the exact export to check intelligibility, synchronization and transitions. Use the peak, silence, waveform and spectrum as evidence alongside playback. Review rights for every included layer, especially background music. Existing public posts keep their original receipts. A local reconstruction is a new file for review.
+
+### Keep the reaction through a game menu
+
+When the gameplay payoff is already visible and a menu opens during the creator's final line, try cutting the picture to the simultaneous facecam. Keep the existing dialogue, game audio and end point. Compare the versions around the cut to make sure the facecam is readable and the viewer has already seen the result. Listen through the final word and hold. If the revision only changes framing, compare the decoded audio hashes.
