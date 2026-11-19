@@ -45,11 +45,13 @@ def probe_export(media, *, twitch_native=False):
     if (
         picture["codec_name"] not in codecs
         or picture["height"] <= picture["width"]
-        or picture.get("sample_aspect_ratio", "1:1") not in {"1:1", "0:1", "N/A"}
         or any(item.get("rotation", 0) % 360 for item in picture.get("side_data_list", []))
     ):
         expected = "H.264 or HEVC" if twitch_native else "H.264"
         raise ValueError(f"Expected {expected} video encoded directly in portrait orientation")
+    sample_aspect = picture.get("sample_aspect_ratio", "1:1")
+    if sample_aspect not in {"1:1", "0:1", "N/A"}:
+        raise ValueError(f"Expected square pixels (sample aspect ratio 1:1), got {sample_aspect}")
     if audio and audio[0]["codec_name"] != "aac":
         raise ValueError("Expected AAC audio in the MP4 export")
     return probe, bool(audio)

@@ -73,7 +73,7 @@ Audit refs on November 19, 2026 were FootagePilot local `e679197`, its locally a
 python3 review_media.py "$clip_export" --out "$clip_job/delivery-review" --at 0 --at 1.2 --at 6.0
 ```
 
-Use the final portrait H.264 MP4 with AAC or no audio. Specify export-relative seconds around the opening, edit, and payoff, or omit them for evenly spaced samples. Each image is the first frame available from the requested seek. The runner decodes the export, writes a contact sheet and records its SHA-256 in `review.json`. Add `--audio-evidence` for authorized audio to produce a waveform, spectrogram and gain and silence measurements. Listen to the export for words, tone and sync. Attach the report to the [editorial review](editorial-review-template.md) alongside the story and copy decisions.
+Use the final portrait H.264 MP4 with square pixels and AAC or no audio. When building a local FFmpeg render, end the video filter chain with `setsar=1` so scale and pad rounding cannot leave a non-square pixel aspect ratio. For a non-square Twitch rendition, keep the native file intact and obtain a compatible official rendition before staging. Specify export-relative seconds around the opening, edit, and payoff, or omit them for evenly spaced samples. Each image is the first frame available from the requested seek. The runner decodes the export, writes a contact sheet and records its SHA-256 in `review.json`. Add `--audio-evidence` for authorized audio to produce a waveform, spectrogram and gain and silence measurements. Listen to the export for words, tone and sync. Attach the report to the [editorial review](editorial-review-template.md) alongside the story and copy decisions.
 
 ## Keep sound through the edit
 
