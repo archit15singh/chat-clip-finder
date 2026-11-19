@@ -79,6 +79,8 @@ TwitchDownloaderCLI videodownload --id "$VOD_ID" --beginning 3624s --ending 3705
 
 The report counts messages in sliding ten-second windows and compares each to the median of its six immediately preceding ten-second windows. It returns nonoverlapping candidates with at least ten messages and three times the baseline rate. An empty list indicates that no window reached both thresholds. Review the footage around each returned VOD offset to establish the cause and select the actual boundaries.
 
+If gift subs dominate the replay, repeat the ranking with `--exclude-gift-notices`. It removes the recognized English batch and per-recipient announcements from both the candidate and baseline windows. The report includes `gift_notices_excluded`. In the Jason Day 2 archive, it excluded 17 announcements and moved the leading window by seven seconds. Footage confirmed that the new window was still a reaction to another stream. The same flag left Loserfruit's 12-message fridge cue unchanged.
+
 For a first pass through a long archive, use `--min-separation 30` to keep at least 30 seconds between selected window starts. This keeps the strongest window from the repeated reactions observed during the Lacy shower and Clix seaplane scenes. Return to the default ten seconds when reviewing a sequence where multiple nearby events may matter.
 
 ### Review the edit as a viewer
