@@ -37,7 +37,10 @@ class MediaReviewTest(unittest.TestCase):
             self.assertEqual([frame["requested_seconds"] for frame in data["frames"]], [0, 0.5])
             for name in [data["contact_sheet"], *data["audio_evidence"]]:
                 self.assertGreater((report.parent / name).stat().st_size, 0)
-            self.assertIn("max_volume:", (report.parent / "audio-statistics.txt").read_text())
+            statistics = (report.parent / "audio-statistics.txt").read_text()
+            self.assertIn("max_volume:", statistics)
+            self.assertRegex(statistics, r"\bI:\s*-\d+\.\d+ LUFS")
+            self.assertRegex(statistics, r"True peak:\s+Peak:\s*-\d+\.\d+ dBFS")
 
             revised = review_export(revision, root / "revised-review", (0, 0.5), audio_evidence=True)
             revised_data = json.loads(revised.read_text())
