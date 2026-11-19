@@ -68,7 +68,9 @@ case "$vod_started" in
 esac
 ```
 
-Confirm surviving candidates against source frames and audio. A timestamp only establishes that a clip was made after the replay started. An empty result describes the ranked sample. Keep scouting and verify the creator's sharing scope separately.
+The listing timestamp records clip creation. Use it for date triage and use the replay clock for source position. In the AsianJeff floatplane check, clip creation was 4,191 seconds after the broadcast started. Three independent audio matches placed the clip at about 3,262–3,292 seconds in the replay, over 15 minutes earlier than the creation-based estimate.
+
+Start with a short window when the scene has a clear replay cue. If the estimate misses, search earlier bounded excerpts from the same replay, using audio-only excerpts from a lower-bitrate rendition first. Re-capture the matching window and verify three audio anchors, source frames, and both speech boundaries before recording a source range. See [native clip verification](publishing-queue.md#deliver-through-twitchs-native-export) for the alignment command. An empty listing result describes the ranked sample. Verify the creator’s sharing scope separately.
 
 ## Clip a local recording without chat
 
