@@ -36,6 +36,19 @@ TwitchDownloaderCLI chatdownload --id VOD_ID --beginning 01:15:00 --ending 01:25
 python3 clip_finder.py --video excerpt.mp4 --chat chat.json --vod-start 01:15:00 --out excerpt-clips
 ```
 
+### Scout a short replay window
+
+For a public Twitch replay you can scout, run the preview from the checkout with `yt-dlp`, FFmpeg, and FFprobe on `PATH`. Use the local Python environment and Whisper model described in [speech transcription](#finish-a-spoken-reaction-at-the-cut).
+
+```sh
+mkdir -p .improvement
+.improvement/speech-env/bin/python scripts/scout-twitch-replay.py 123456789 \
+  --start 1891 --duration 82 --model /path/to/ggml-base.bin \
+  --out .improvement/replay-scout-1891
+```
+
+Open `frames.jpg` and `speech.srt` to decide whether the incident warrants an edit. Confirm cues against `preview.mp4`, which keeps the source aspect ratio and audio. The transcript clock starts at the first frame of that file. `source.json` records the requested VOD offset and measured preview length. Verify the opening and ending on the source before using that offset in an edit. For an ongoing broadcast, select a window already in the replay. The command reports a short capture as an error. If speech extraction fails, inspect the saved preview and frames.
+
 ## Clip a local recording without chat
 
 ```sh
