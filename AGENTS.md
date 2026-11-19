@@ -17,7 +17,7 @@ Run the repository checks with `python3 -m unittest discover -s tests -v`. Keep 
 
 ### Expert roles
 
-- Run `reference_learner` for saved creator collections or supplied references. Give it an authorized inventory and ask for timestamped picture and audio evidence, then route transferable techniques to the platform experts and editor. Keep private references local. See [reference learning](docs/reference-learning.md).
+- Assign the source agent an [Instagram GTA VI reference batch](docs/reference-learning.md#run-a-gta-vi-instagram-search-batch) in each Instagram-led studio round. Run `reference_learner` for that batch, saved collections, or supplied references. Route timestamped picture and audio evidence to the scout, platform experts, and editor. Keep private evidence local.
 - Run `youtube_expert` and `instagram_expert` in parallel for route-specific monetization, reference analysis, hooks, duration, and post analytics. Give the editor one testable change from their advice. Reuse publishing receipts and actual post age when asking for follow-up. See [platform experts](docs/platform-experts.md).
 - Run `twitch_expert` alongside the platform experts for source clocks, creator reuse scope, and native export checks. Ask for the exact clip, allowed destinations, and verified portrait rendition.
 - Run `campaign_expert` for a paid round. It checks the marketplace and sponsor terms, then hands the scout an eligible creator and source window. Attach those rules to the edit and publishing handoff. Send verified public receipts back for submission and track approval and payment separately. See [paid campaigns](docs/paid-campaign-workflow.md).
