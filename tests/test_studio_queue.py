@@ -11,7 +11,7 @@ import unittest
 
 from review_media import review_export
 from studio_campaigns import CHECKS
-from studio_queue import LEASE_SECONDS, Queue
+from studio_queue import LEASE_SECONDS, SCHEMA, Queue
 
 
 SCRIPT = Path(__file__).resolve().parent.parent / "studio_queue.py"
@@ -228,6 +228,11 @@ class StudioQueueTest(unittest.TestCase):
         self.assertEqual(self.queue.status()[0]["state"], "claimed")
         self.write("campaign.json", brief)
         self.assertEqual(self.queue.begin(claim["token"], preflight)["state"], "submitting")
+        self.queue.release(claim["token"], "Processing")
+        with self.assertRaisesRegex(ValueError, "Only YouTube showcase"):
+            self.queue.defer_processing(claim["token"], self.write("paid-processing.json", {
+                "evidence": "Shows processing",
+            }))
 
     def test_twitch_native_delivery_checks_clip_layout_and_rendition(self):
         manifest = json.loads(self.manifest().read_text())
@@ -393,6 +398,91 @@ class StudioQueueTest(unittest.TestCase):
         )
         self.assertEqual(self.queue.reconcile(new["token"], restored), "verified")
         self.assertIsNone(self.queue.claim("anything-left"))
+
+    def test_known_youtube_processing_can_yield_the_browser_slot(self):
+        self.approve(self.queue.stage(self.manifest()))
+        youtube = self.queue.claim("publisher")
+        self.begin(youtube)
+        token = youtube["token"]
+        url = "https://www.youtube.com/shorts/abcdefghijk"
+        other_url = "https://www.youtube.com/shorts/abcdefghijl"
+        proof = {
+            "public_url": url, "account": "channel", "processing": True,
+            "prior_worker_stopped": True, "evidence": "Exact upload shows processing in Studio",
+        }
+        self.queue.remember(token, url)
+        with self.assertRaisesRegex(ValueError, "already be in reconciliation"):
+            self.queue.defer_processing(token, self.write("pending.json", proof))
+        self.queue.release(token, "Waiting for Studio processing")
+        self.assertIsNone(self.queue.claim("other-publisher"))
+        for override, error in (
+            ({"public_url": other_url}, "exact post ID"),
+            ({"account": "another"}, "reviewed destination"),
+            ({"prior_worker_stopped": False}, "has stopped"),
+            ({"processing": False}, "processing"),
+        ):
+            with self.subTest(override=override), self.assertRaisesRegex(ValueError, error):
+                self.queue.defer_processing(token, self.write("pending.json", {**proof, **override}))
+        self.assertEqual(
+            self.queue.defer_processing(token, self.write("pending.json", proof)), "processing_deferred",
+        )
+        self.assertEqual(self.queue.defer_processing(token, self.write("pending.json", proof)), "processing_deferred")
+        handoff = self.queue.handoff()
+        self.assertIsNone(handoff["active_delivery"])
+        self.assertEqual(handoff["awaiting_processing"][0]["remote_post_id"], "abcdefghijk")
+        instagram = self.queue.claim("other-publisher")
+        self.assertEqual(instagram["platform"], "instagram")
+        self.assertIsNone(self.queue.claim("third-publisher"))
+        with self.assertRaisesRegex(ValueError, "active attempt"):
+            self.queue.stage(self.manifest(cut="replacement", supersedes="first"))
+        self.begin(instagram)
+        self.queue.finish(instagram["token"], self.receipt(instagram, "https://www.instagram.com/reel/one"))
+        self.approve(self.queue.stage(self.manifest(cut="second", scene="second", media=1)))
+        another_youtube = self.queue.claim("other-publisher")
+        self.begin(another_youtube)
+        with self.assertRaisesRegex(ValueError, "already has a delivery"):
+            self.queue.remember(another_youtube["token"], url)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.queue.finish(another_youtube["token"], self.receipt(another_youtube, url))
+        with self.assertRaisesRegex(ValueError, "recorded post ID"):
+            self.queue.reconcile(token, self.write("absent.json", {
+                "account": "channel", "outcome": "absent", "prior_worker_stopped": True,
+                "evidence": "No longer listed", "pending_uploads_checked": True, "public_posts_checked": True,
+            }))
+        with self.assertRaisesRegex(ValueError, "post ID"):
+            self.queue.reconcile(token, self.receipt(youtube, other_url, prior_worker_stopped=True))
+        self.assertEqual(
+            self.queue.reconcile(token, self.receipt(youtube, url, prior_worker_stopped=True)), "verified",
+        )
+        self.assertEqual(self.queue.handoff()["awaiting_processing"], [])
+        self.queue.release(another_youtube["token"], "Upload result is unknown")
+        with self.assertRaisesRegex(ValueError, "exact post ID"):
+            self.queue.defer_processing(another_youtube["token"], self.write("pending.json", proof))
+        self.assertIsNone(self.queue.claim("blocked-publisher"))
+
+    def test_migrate_v1_without_deferring_existing_attempts(self):
+        old_path = self.root / "legacy.sqlite3"
+        legacy = sqlite3.connect(old_path)
+        self.addCleanup(legacy.close)
+        legacy.executescript(SCHEMA)
+        legacy.execute("PRAGMA user_version = 1")
+        legacy.execute(
+            """INSERT INTO cuts (id, scene, package, fingerprint, artifact, artifact_sha256)
+               VALUES ('legacy', 'legacy', '{}', 'hash', 'unused', 'hash')""",
+        )
+        legacy.execute("INSERT INTO deliveries (cut_id, platform, state) VALUES ('legacy', 'youtube', 'reconcile')")
+        legacy.execute(
+            """INSERT INTO attempts (id, cut_id, platform, worker, claimed_at, expires, remote_post_id)
+               VALUES ('legacy-attempt', 'legacy', 'youtube', 'publisher', 0, 1, 'abcdefghijk')""",
+        )
+        legacy.execute("UPDATE deliveries SET attempt_id = 'legacy-attempt' WHERE cut_id = 'legacy'")
+        legacy.commit()
+        migrated = Queue(legacy, self.root / "legacy.media")
+        self.assertEqual(legacy.execute("PRAGMA user_version").fetchone()[0], 2)
+        self.assertEqual(legacy.execute("PRAGMA foreign_key_check").fetchall(), [])
+        self.assertEqual(migrated.handoff()["active_delivery"]["remote_post_id"], "abcdefghijk")
+        self.assertEqual(migrated.handoff()["awaiting_processing"], [])
+        self.assertIsNone(migrated.claim("next-publisher"))
 
     def test_same_external_post_cannot_verify_two_deliveries(self):
         for cut, media in (("first", 0), ("second", 1)):
