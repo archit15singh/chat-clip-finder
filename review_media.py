@@ -60,10 +60,13 @@ def probe_export(media, *, twitch_native=False):
 MIN_SIGNAL_PEAK_DBFS = -60.0
 
 
-def measure_audio(media, ffmpeg):
+def measure_audio(media, ffmpeg, *, loudness=False):
+    filters = [f"silencedetect=noise={MIN_SIGNAL_PEAK_DBFS}dB:d=0.05"]
+    if loudness:
+        filters.append("ebur128=peak=true:framelog=verbose")
+    filters.append("volumedetect")
     result = subprocess.run(
-        (*ffmpeg, "-i", str(media), "-vn", "-af", f"silencedetect=noise={MIN_SIGNAL_PEAK_DBFS}dB:d=0.05,volumedetect",
-         "-f", "null", "-"),
+        (*ffmpeg, "-i", str(media), "-vn", "-af", ",".join(filters), "-f", "null", "-"),
         capture_output=True, text=True,
     )
     if result.returncode:
@@ -76,6 +79,11 @@ def measure_audio(media, ffmpeg):
     if peak is None:
         raise ValueError("Could not measure decoded audio peak")
     silent_seconds = sum(map(float, re.findall(r"silence_duration: ([0-9.]+)", statistics)))
+    if loudness:
+        summary = re.search(r"\[Parsed_ebur128_[^\n]+\] Summary:[^\[]*", result.stderr)
+        if summary is None:
+            raise ValueError("Could not measure integrated loudness and true peak")
+        statistics += "\n" + summary[0].rstrip() + "\n"
     return float(peak[1]), silent_seconds, statistics
 
 
@@ -140,7 +148,9 @@ def review_export(media, output, timestamps=(), audio_evidence=False, *, twitch_
                        "-vf", f"tile={columns}x{rows}:padding=6:margin=6", "-frames:v", "1",
                        str(directory / "contact-sheet.png"))
 
-        peak, silent_seconds, statistics = measure_audio(snapshot, ffmpeg) if has_audio else (None, 0, "")
+        peak, silent_seconds, statistics = (
+            measure_audio(snapshot, ffmpeg, loudness=audio_evidence) if has_audio else (None, 0, "")
+        )
         audio_duration = next(
             (float(track["duration"]) for track in probe["streams"] if track["codec_type"] == "audio"), 0,
         )
