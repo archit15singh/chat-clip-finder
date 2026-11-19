@@ -2,7 +2,7 @@
 """Hand an independently reviewed export to one browser publisher at a time."""
 
 import argparse
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -765,7 +765,7 @@ def main():
     command = args.pop("command")
     try:
         database.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(database, timeout=15) as connection:
+        with closing(sqlite3.connect(database, timeout=15)) as connection, connection:
             queue = Queue(connection, database.with_suffix(database.suffix + ".media"))
             result = getattr(queue, command)(**args)
     except (OSError, sqlite3.Error, ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
