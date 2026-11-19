@@ -23,6 +23,7 @@ PLATFORMS = ("youtube", "instagram")
 QUEUE_PATH = Path(".improvement/studio/queue.sqlite3")
 LEASE_SECONDS = 600
 PUBLIC_TIMESTAMP_TOLERANCE = 120
+BROWSER_SLOT = "state IN ('claimed', 'submitting', 'reconcile') AND processing_deferred = 0"
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS cuts (
     id TEXT PRIMARY KEY,
@@ -270,8 +271,19 @@ class Queue:
                     raise ValueError("This is a pre-release queue. Preserve it and choose a fresh database.")
                 for statement in SCHEMA.strip().rstrip(";").split(";"):
                     self.db.execute(statement)
-                self.db.execute("PRAGMA user_version = 1")
-            elif version != 1:
+                version = 1
+            if version == 1:
+                self.db.execute(
+                    """ALTER TABLE deliveries ADD COLUMN processing_deferred INTEGER NOT NULL DEFAULT 0
+                       CHECK (processing_deferred = 0 OR (
+                           processing_deferred = 1 AND state = 'reconcile' AND platform = 'youtube'
+                           AND external_id IS NOT NULL AND attempt_id IS NOT NULL
+                       ))""",
+                )
+                self.db.execute("DROP INDEX one_browser_writer")
+                self.db.execute(f"CREATE UNIQUE INDEX one_browser_writer ON deliveries((1)) WHERE {BROWSER_SLOT}")
+                self.db.execute("PRAGMA user_version = 2")
+            elif version != 2:
                 raise ValueError(f"Unsupported queue version {version}")
         self.spool = spool.resolve()
         self.clock = clock
@@ -430,7 +442,7 @@ class Queue:
 
     def transition(self, token, state, now, result, post_id=None):
         self.db.execute(
-            """UPDATE deliveries SET state = ?, external_id = ?, receipt = ?,
+            """UPDATE deliveries SET state = ?, external_id = ?, receipt = ?, processing_deferred = 0,
                attempt_id = CASE WHEN ? = 'reconcile' THEN attempt_id ELSE NULL END WHERE attempt_id = ?""",
             (state, post_id, serialize(result) if post_id else None, state, token),
         )
@@ -446,7 +458,7 @@ class Queue:
             now = self.clock()
             self.expire(now)
             if self.db.execute(
-                "SELECT 1 FROM deliveries WHERE state IN ('claimed','submitting','reconcile')",
+                f"SELECT 1 FROM deliveries WHERE {BROWSER_SLOT}",
             ).fetchone():
                 return None
             candidates = self.db.execute(
@@ -482,7 +494,8 @@ class Queue:
 
     def attempt(self, token):
         row = self.db.execute(
-            """SELECT attempts.*, deliveries.state, deliveries.attempt_id, cuts.package, cuts.artifact,
+            """SELECT attempts.*, deliveries.state, deliveries.attempt_id, deliveries.processing_deferred,
+                      cuts.package, cuts.artifact,
                       cuts.artifact_sha256, cuts.fingerprint, cuts.reviewer, cuts.replaced_by FROM attempts
                JOIN deliveries USING(cut_id,platform) JOIN cuts ON cuts.id = attempts.cut_id
                WHERE attempts.id = ?""", (token,),
@@ -592,6 +605,34 @@ class Queue:
             self.db.execute("UPDATE attempts SET remote_post_id = ? WHERE id = ?", (post_id, token))
             return post_id
 
+    def defer_processing(self, token, proof):
+        proof = read_json(proof)
+        evidence = require_text(proof, "evidence")
+        with self.transaction():
+            row = self.attempt(token)
+            if row["attempt_id"] != token or row["state"] != "reconcile":
+                raise ValueError("The attempt must already be in reconciliation")
+            package = json.loads(row["package"])
+            if row["platform"] != "youtube" or "campaign_url" in package:
+                raise ValueError("Only YouTube showcase uploads can defer processing")
+            if require_text(proof, "account") != package["destinations"]["youtube"]["account"]:
+                raise ValueError("Readback account differs from the reviewed destination")
+            post_id, _ = permalink("youtube", require_text(proof, "public_url"))
+            if row["remote_post_id"] != post_id:
+                raise ValueError("Supply the exact post ID recorded during upload")
+            if proof.get("processing") is not True or proof.get("prior_worker_stopped") is not True:
+                raise ValueError("Confirm Studio still shows processing and the earlier publisher has stopped")
+            if not row["processing_deferred"]:
+                self.db.execute(
+                    "UPDATE deliveries SET processing_deferred = 1, external_id = ? WHERE attempt_id = ?",
+                    (post_id, token),
+                )
+                self.db.execute(
+                    "UPDATE attempts SET result = ? WHERE id = ?",
+                    (serialize({"state": "reconcile", "processing_deferred": True, "evidence": evidence}), token),
+                )
+        return "processing_deferred"
+
     def record(self, token, receipt, *, recovery=False):
         proof = read_json(receipt)
         with self.transaction():
@@ -609,6 +650,8 @@ class Queue:
             result = {"account": target["account"], "evidence": evidence}
             post_id = None
             if recovery and proof.get("outcome") == "absent":
+                if row["processing_deferred"]:
+                    raise ValueError("A deferred upload must reconcile against its recorded post ID")
                 if proof.get("pending_uploads_checked") is not True or proof.get("public_posts_checked") is not True:
                     raise ValueError("Check both drafts/pending uploads and public posts before retry")
                 next_state = "ready"
@@ -686,7 +729,10 @@ class Queue:
 
     def handoff(self):
         deliveries = self.status()
-        active = [row for row in deliveries if row["state"] in {"claimed", "submitting", "reconcile"}]
+        active = [
+            row for row in deliveries
+            if row["state"] in {"claimed", "submitting", "reconcile"} and not row["processing_deferred"]
+        ]
         ready, needs_review = [], {}
         for row in deliveries:
             if row["state"] != "ready":
@@ -698,6 +744,7 @@ class Queue:
                 needs_review.setdefault(cut_id, []).append(row["platform"])
         return {
             "active_delivery": active[0] if active else None,
+            "awaiting_processing": [row for row in deliveries if row["processing_deferred"]],
             "ready_to_publish": ready,
             "awaiting_review": [
                 {"cut": cut_id, "platforms": platforms} for cut_id, platforms in needs_review.items()
@@ -721,7 +768,8 @@ class Queue:
         with self.transaction():
             self.expire(self.clock())
             rows = self.db.execute(
-                """SELECT deliveries.cut_id, deliveries.platform, deliveries.state, cuts.reviewer, deliveries.receipt,
+                """SELECT deliveries.cut_id, deliveries.platform, deliveries.state, deliveries.processing_deferred,
+                          cuts.reviewer, deliveries.receipt,
                           attempts.id AS token, attempts.worker, attempts.expires, attempts.remote_post_id, attempts.result
                    FROM deliveries JOIN cuts ON cuts.id = deliveries.cut_id
                    LEFT JOIN attempts ON attempts.id = deliveries.attempt_id
@@ -756,6 +804,9 @@ def main():
             command.add_argument("public_url")
         elif name in {"finish", "reconcile"}:
             command.add_argument("receipt", type=Path)
+    defer = commands.add_parser("defer-processing")
+    defer.add_argument("token")
+    defer.add_argument("proof", type=Path)
     commands.add_parser("status")
     commands.add_parser("history")
     commands.add_parser("milestones")
@@ -767,7 +818,7 @@ def main():
         database.parent.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(database, timeout=15)) as connection, connection:
             queue = Queue(connection, database.with_suffix(database.suffix + ".media"))
-            result = getattr(queue, command)(**args)
+            result = getattr(queue, command.replace("-", "_"))(**args)
     except (OSError, sqlite3.Error, ValueError, KeyError, TypeError, AttributeError, OverflowError) as error:
         parser.exit(2, f"studio queue: {error}\n")
     print(json.dumps(result, indent=2, ensure_ascii=False))
