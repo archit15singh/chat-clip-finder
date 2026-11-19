@@ -97,3 +97,11 @@ python3 scripts/align-clip-audio.py native-portrait.mp4 replay-excerpt.mp4 --rep
 ```
 
 At claim, reopen that permalink and confirm the portrait preview and the connected destination account. Fetch or confirm the current official portrait rendition. In preflight use `twitch_native_clip`, `layout: "portrait"`, and `portrait_rendition` instead of `upload_file`. The queue checks the permalink and local rendition hash against the approved package. The operator checks that the active preview uses that same portrait before submitting. The normal lease, campaign evidence, copy, and public playback checks still apply. The receipt hash identifies the reviewed Twitch rendition. Twitch and the destination can transcode it.
+
+### Recover a native share without a permalink
+
+Twitch can return to **Share to More Places** immediately after submission. Check the intended destination before clicking Share again.
+
+- For YouTube, look for the exact title in both **Videos** and **Shorts** in the brand channel’s Studio. During the apple-bowl release, the upload first appeared under Videos. Its public Shorts URL initially showed a playback error and played after processing and a reload.
+- For Instagram, check the brand profile’s **Reels** and **Posts** tabs for the exact caption and picture. Use the resulting permalink to verify playback. If the post is still missing, check the brand’s pending uploads and drafts before recording an absent outcome.
+- If a permalink appears while the attempt is submitting, save it with `remember`. If the lease has already moved to reconciliation, verify that permalink and use `reconcile` with the receipt. An empty first readback or a broken browser connection is evidence for keeping the existing attempt open.
