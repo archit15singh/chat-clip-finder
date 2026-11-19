@@ -7,6 +7,25 @@ from studio_observations import check_observations, collect_public_observations
 
 
 class ObservationTest(unittest.TestCase):
+    def test_two_hour_readback_uses_its_actual_early_window(self):
+        publication = datetime(2026, 11, 19, tzinfo=timezone.utc)
+        now = publication + timedelta(days=1)
+        published = {("instagram", "abcdefghijk"): ("cut", publication)}
+        row = {
+            "platform": "instagram", "url": "https://www.instagram.com/reel/abcdefghijk/",
+            "metric_source": "public_reel_readback", "metrics": {"plays": 151},
+            "milestone_hours": 2,
+        }
+        for seconds in (7200, 8100):
+            observed = (publication + timedelta(seconds=seconds)).isoformat()
+            checked, = check_observations([{**row, "observed_at": observed}], published, now)
+            self.assertEqual(checked["age_seconds"], seconds)
+            self.assertEqual(checked["milestone_hours"], 2)
+        for seconds in (7199, 8101, 24 * 3600):
+            with self.subTest(seconds=seconds), self.assertRaisesRegex(ValueError, "milestone window"):
+                observed = (publication + timedelta(seconds=seconds)).isoformat()
+                check_observations([{**row, "observed_at": observed}], published, now)
+
     def test_public_probe_requires_a_verified_post_and_requested_age(self):
         link = "https://youtube.com/shorts/abcdefghijk?si=share"
         canonical = "https://www.youtube.com/shorts/abcdefghijk"
